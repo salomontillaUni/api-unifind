@@ -1,0 +1,702 @@
+{
+  "info": {
+    "_postman_id": "e5a8f4c2-9a3b-4c5e-8d6f-7b1e2a3c4d5e",
+    "name": "UniFind - Sistema Universitario de Objetos Perdidos",
+    "description": "Colección oficial para evaluación y sustentación de 5 minutos del Parcial 2 (Bases de Datos Avanzadas - Uniautónoma).\n\nIncluye el flujo completo de las 10 historias de usuario organizadas secuencialmente, más 1 petición bonus de validación de errores HTTP 400.\n\nTodos los IDs están precargados y alineados con el script `seed.js` para una ejecución inmediata y sin fricción.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string",
+      "description": "URL base de la API REST de UniFind"
+    },
+    {
+      "key": "itemId",
+      "value": "670c1f1e1c9d440000b10001",
+      "type": "string",
+      "description": "ID del reporte de prueba (Calculadora Casio con claimQuestion)"
+    },
+    {
+      "key": "chatId",
+      "value": "670c1f1e1c9d440000c10001",
+      "type": "string",
+      "description": "ID de la conversación de chat de prueba entre Carlos y Valentina"
+    },
+    {
+      "key": "userId",
+      "value": "670c1f1e1c9d440000a10001",
+      "type": "string",
+      "description": "ID de Carlos Andrés Muñoz (Estudiante que encontró el objeto)"
+    },
+    {
+      "key": "claimantId",
+      "value": "670c1f1e1c9d440000a10002",
+      "type": "string",
+      "description": "ID de Valentina Gómez Restrepo (Estudiante reclamante/propietaria)"
+    },
+    {
+      "key": "andresId",
+      "value": "670c1f1e1c9d440000a10003",
+      "type": "string",
+      "description": "ID de Andrés Felipe Salazar (Estudiante de la comunidad)"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. [H1] Registro de Usuario Institucional",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test(\"Estructura de respuesta exitosa\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data).to.be.an('object');",
+              "    pm.expect(json.data.institutionalEmail).to.include('@uniautonoma.edu.co');",
+              "});",
+              "",
+              "pm.test(\"Reputación inicial asignada correctamente (rating 5.0, count 0)\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data.reputation.rating).to.eql(5);",
+              "    pm.expect(json.data.reputation.returnedCount).to.eql(0);",
+              "});",
+              "",
+              "if (pm.response.code === 201) {",
+              "    const json = pm.response.json();",
+              "    pm.collectionVariables.set(\"registeredUserId\", json.data._id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Mariana López Narváez\",\n  \"institutionalEmail\": \"mariana.lopez@uniautonoma.edu.co\",\n  \"studentCode\": \"2024-1055\",\n  \"phone\": \"3123456789\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "register"
+          ]
+        },
+        "description": "### Historia de Usuario 1: Registro en la Red de Confianza\nRegistra un nuevo estudiante validando que el correo pertenezca estrictamente al dominio `@uniautonoma.edu.co`. Inicializa el perfil con reputación de confianza (rating 5.0, 0 devoluciones)."
+      },
+      "response": []
+    },
+    {
+      "name": "02. [H2] Crear Reporte Polimórfico con Pregunta de Comprobación",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test(\"Reporte polimórfico registrado con tags y atributos flexibles\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.type).to.eql('found');",
+              "    pm.expect(json.data.tags).to.be.an('array').that.includes('audifonos');",
+              "});",
+              "",
+              "pm.test(\"Sanitización: claimAnswer oculta en respuesta\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data.privacy.claimAnswer).to.be.undefined;",
+              "    pm.expect(json.data.privacy.claimQuestion).to.be.ok;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Audífonos Inalámbricos Sony WH-1000XM4\",\n  \"type\": \"found\",\n  \"category\": \"electronics\",\n  \"description\": \"Audífonos de diadema color negro en estuche rígido encontrados en mesa de la biblioteca.\",\n  \"location\": {\n    \"campus\": \"Sede Principal\",\n    \"building\": \"Biblioteca\",\n    \"specificArea\": \"Sala de lectura piso 1\"\n  },\n  \"attributes\": {\n    \"color\": \"Negro\",\n    \"marca\": \"Sony\",\n    \"inalambrico\": true,\n    \"estadoFisico\": \"Excelente\"\n  },\n  \"tags\": [\n    \"audifonos\",\n    \"sony\",\n    \"biblioteca\",\n    \"musica\",\n    \"electronica\"\n  ],\n  \"privacy\": {\n    \"isAnonymous\": true,\n    \"postedBy\": \"{{userId}}\",\n    \"claimQuestion\": \"¿Qué sticker distintivo tiene el estuche protector?\",\n    \"claimAnswer\": \"Sticker de astronauta azul en la esquina superior\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items"
+          ]
+        },
+        "description": "### Historia de Usuario 2: Creación de Reporte Polimórfico\nCrea un reporte de objeto encontrado con esquema polimórfico flexible (`attributes` y `tags`), ubicación en el campus, anonimato activado (`isAnonymous: true`) y mecanismo de seguridad `claimQuestion`/`claimAnswer`."
+      },
+      "response": []
+    },
+    {
+      "name": "03. [H3] Búsqueda y Filtrado Multicriterio con Índice $text",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Filtrado multicriterio y búsqueda por índice $text exitosa\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data).to.be.an('array');",
+              "    pm.expect(json.data.length).to.be.above(0);",
+              "    pm.expect(json.data[0].category.toLowerCase()).to.eql('electronics');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items?type=found&category=electronics&search=casio",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items"
+          ],
+          "query": [
+            {
+              "key": "type",
+              "value": "found",
+              "description": "Filtro exacto por tipo de reporte (found o lost)"
+            },
+            {
+              "key": "category",
+              "value": "electronics",
+              "description": "Filtro por categoría del objeto"
+            },
+            {
+              "key": "search",
+              "value": "casio",
+              "description": "Búsqueda textual sobre título, descripción y tags usando el índice compuesto $text de MongoDB"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 3: Búsqueda y Filtrado Multicriterio\nCombina filtros estructurados (`type=found`, `category=electronics`) con búsqueda textual libre (`search=casio`) sobre los campos indexados mediante `$text` en MongoDB."
+      },
+      "response": []
+    },
+    {
+      "name": "04. [H4] Detalle de Reporte con Sanitización de Privacidad",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Sanitización de anonimato: postedBy enmascarado\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.privacy.isAnonymous).to.be.true;",
+              "    pm.expect(json.data.privacy.postedBy.fullName).to.eql('Usuario Anónimo');",
+              "});",
+              "",
+              "pm.test(\"Sanitización de seguridad: claimAnswer oculta\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data.privacy.claimAnswer).to.be.undefined;",
+              "    pm.expect(json.data.privacy.claimQuestion).to.be.ok;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "670c1f1e1c9d440000b10001",
+              "description": "ID del objeto reporte (Calculadora Casio del seed)"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 4: Detalle con Sanitización de Privacidad\nRecupera el detalle completo del objeto. Si el reportante activó anonimato (`isAnonymous: true`), sus datos personales son enmascarados como 'Usuario Anónimo'. La respuesta de comprobación (`claimAnswer`) NUNCA es visible en consultas públicas."
+      },
+      "response": []
+    },
+    {
+      "name": "05. [H5] Verificación de Propiedad Respondiendo Claim Question",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Propiedad comprobada satisfactoriamente (claimVerified: true)\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.claimVerified).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answer\": \"tapa azul con iniciales CM\",\n  \"claimantId\": \"{{claimantId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items/:id/claim-verify",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items",
+            ":id",
+            "claim-verify"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "670c1f1e1c9d440000b10001",
+              "description": "ID del objeto reporte a reclamar"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 5: Comprobación de Propiedad\nValida si la respuesta del reclamante coincide con la respuesta secreta guardada por quien encontró el objeto. Normaliza tildes y mayúsculas/minúsculas sin exponer el valor original."
+      },
+      "response": []
+    },
+    {
+      "name": "06. [H6] Apertura de Canal Privado entre Finder y Claimant",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 o 201\", function () {",
+              "    pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "",
+              "pm.test(\"Canal de chat vinculado con itemId y participantes\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.participants).to.be.an('array').with.lengthOf(2);",
+              "});",
+              "",
+              "if (pm.response.code === 200 || pm.response.code === 201) {",
+              "    const json = pm.response.json();",
+              "    pm.collectionVariables.set(\"chatId\", json.data._id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"itemId\": \"{{itemId}}\",\n  \"claimantId\": \"{{claimantId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/chats",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "chats"
+          ]
+        },
+        "description": "### Historia de Usuario 6: Canal Privado de Entrega\nCrea o recupera la sala de chat privada entre quien reportó el objeto y quien demostró pertenencia. Realiza la transición de estado automática del objeto de `active` a `in_process`."
+      },
+      "response": []
+    },
+    {
+      "name": "07. [H7] Envío de Mensaje Atómico en Canal de Chat",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test(\"Mensaje registrado y actualización atómica del Chat padre\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.message.content).to.be.ok;",
+              "    pm.expect(json.data.chat.lastMessage).to.be.an('object');",
+              "    pm.expect(json.data.chat.lastMessage.text).to.eql(json.data.message.content);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"senderId\": \"{{claimantId}}\",\n  \"content\": \"¡Hola Carlos! Muchas gracias por cuidar la calculadora. ¿Nos vemos a las 3:00 PM frente a la cafetería central para la entrega?\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/chats/:id/messages",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "chats",
+            ":id",
+            "messages"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "670c1f1e1c9d440000c10001",
+              "description": "ID de la conversación de chat de prueba"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 7: Envío Atómico de Mensajes\nGuarda el mensaje en la colección `messages` y actualiza en la misma operación el documento `chats` padre con `lastMessage` y el incremento de `unreadCount` del receptor."
+      },
+      "response": []
+    },
+    {
+      "name": "08. [H8] Transición de Estado a 'returned' y Vinculación de Receptor",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Estado actualizado a 'returned' con receptor vinculado\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.status).to.eql('returned');",
+              "    pm.expect(json.data.returnedTo).to.be.an('object');",
+              "    pm.expect(json.data.returnedTo._id).to.eql('670c1f1e1c9d440000a10002');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"returned\",\n  \"returnedTo\": \"{{claimantId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items/:id/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items",
+            ":id",
+            "status"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "670c1f1e1c9d440000b10001",
+              "description": "ID del objeto reporte que fue entregado"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 8: Cierre y Devolución Exitosa\nFinaliza el ciclo del objeto extraviado marcando el estado como `returned` y vinculando formalmente la referencia del estudiante que lo recibió (`returnedTo`)."
+      },
+      "response": []
+    },
+    {
+      "name": "09. [H9] Calificación de Usuario y Recálculo Ponderado de Reputación",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Recálculo ponderado de reputación exitoso\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.reputation.returnedCount).to.be.above(0);",
+              "    pm.expect(json.data.reputation.rating).to.be.within(1, 5);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rating\": 5,\n  \"raterId\": \"{{claimantId}}\",\n  \"itemId\": \"{{itemId}}\",\n  \"comment\": \"¡Excelente honestidad y puntualidad en la entrega de la calculadora en la plazoleta!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/:id/rate",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            ":id",
+            "rate"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "670c1f1e1c9d440000a10001",
+              "description": "ID del estudiante a calificar (Carlos Andrés)"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 9: Calificación y Reputación\nPermite calificar (1 a 5 estrellas) al estudiante que devolvió el objeto. Recalcula la reputación general mediante promedio ponderado acumulativo e incrementa el contador de objetos devueltos (`returnedCount`)."
+      },
+      "response": []
+    },
+    {
+      "name": "10. [H10] Agregación de Zonas Críticas de Pérdida (Campus Hotspots)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Pipeline de agregación ejecutado exitosamente\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data).to.be.an('array');",
+              "    pm.expect(json.summary.totalGlobalLostItems).to.be.at.least(1);",
+              "    pm.expect(json.data[0]).to.have.property('building');",
+              "    pm.expect(json.data[0]).to.have.property('totalLostItems');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/analytics/hotspots?limit=5",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "analytics",
+            "hotspots"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "5",
+              "description": "Número máximo de zonas críticas a retornar"
+            }
+          ]
+        },
+        "description": "### Historia de Usuario 10: Hotspots del Campus (Aggregation Pipeline)\nEjecuta un Aggregation Pipeline en MongoDB compuesto por etapas `$match`, `$group`, `$sort`, `$limit` y `$project` para identificar los puntos críticos del campus con mayor frecuencia de objetos perdidos."
+      },
+      "response": []
+    },
+    {
+      "name": "11. [BONUS-ERROR] Validación Rechazo Correo No Institucional (400 Bad Request)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Estado HTTP es 400 Bad Request\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Mensaje de error descriptivo sobre dominio institucional\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.false;",
+              "    pm.expect(json.statusCode).to.eql(400);",
+              "    pm.expect(json.error).to.include('@uniautonoma.edu.co');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Pedro Estudiante Externo\",\n  \"institutionalEmail\": \"pedro.externo@gmail.com\",\n  \"studentCode\": \"2024-7777\",\n  \"phone\": \"3119876543\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "register"
+          ]
+        },
+        "description": "### Petición Bonus de Prueba de Errores: Validación Institucional\nDemuestra el control estricto de integridad institucional y el manejador centralizado de errores. Al intentar registrar un correo con dominio público `@gmail.com`, la API rechaza la solicitud de inmediato con código `400 Bad Request`."
+      },
+      "response": []
+    }
+  ]
+}

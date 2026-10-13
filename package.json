@@ -1,0 +1,30 @@
+{
+  "name": "unifind-backend",
+  "version": "1.0.0",
+  "description": "API REST UniFind - Sistema Universitario de Objetos Perdidos y Red de Contacto (Uniautónoma del Cauca)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed": "node seed.js"
+  },
+  "keywords": [
+    "express",
+    "mongodb",
+    "mongoose",
+    "rest-api",
+    "unifind",
+    "uniautonoma"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.8.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
