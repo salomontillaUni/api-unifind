@@ -12,13 +12,11 @@
 
 ---
 
-### Información Académica e Institucional
+### Información Institucional
 - **Institución:** Corporación Universitaria Autónoma del Cauca
 - **Facultad / Programa:** Facultad de Ingeniería — Ingeniería de Sistemas
 - **Asignatura:** Bases de Datos Avanzadas
-- **Docente:** Diego Prado (`diego.prado.o@uniautonoma.edu.co`)
-- **Evaluación:** Parcial 2 — API REST con Node.js y MongoDB (Evaluación de MVP)
-- **Documento de Requerimientos:** [historias-usuarios.md](file:///Users/salomontilla/Universidad/semestre_6/bd_avanzadas/parcial2/historias-usuarios.md)
+- **Documento de Historias de Usuario:** [historias-usuarios.md](historias-usuarios.md)
 
 ---
 
@@ -320,195 +318,46 @@ La API cumple estrictamente con las convenciones REST y cuenta con un middleware
 
 ---
 
-## 8. Guía Estratégica de Sustentación Oral en 5 Minutos (Cronómetro Paso a Paso)
+## 8. Guía de Ejecución y Pruebas de la API (Thunder Client / Postman)
 
-> [!IMPORTANT]
-> **Condición de Aprobación de la Guía:**
-> La sustentación dura **máximo 5 minutos**. Se deben sustentar **las 10 funcionalidades**. Todos los integrantes del grupo deben intervenir. Por cada funcionalidad se debe:
-> 1. Mencionar la Historia de Usuario.
-> 2. Indicar el endpoint y método HTTP.
-> 3. Ejecutar la petición en Thunder Client / Postman.
-> 4. Mostrar la respuesta JSON y el código de estado HTTP.
-> 5. Evidenciar la persistencia en MongoDB.
+El proyecto incluye la colección oficial en formato Postman v2.1.0 en el archivo [`unifind.postman_collection.json`](unifind.postman_collection.json), compatible al 100% con **Postman** y la extensión **Thunder Client** de VS Code.
 
-### Preparación Previa (Antes de Iniciar el Cronómetro)
-1. Ejecutar en terminal: `npm run seed` seguido de `npm run dev`.
-2. Tener abierta la colección de peticiones en Thunder Client o Postman ordenadas del **1 al 10**.
-3. Tener abierto MongoDB Compass o una terminal con `mongosh` apuntando a `unifind_db`.
-4. Asignar los roles de intervención entre los integrantes del grupo:
-   - **Integrante A:** Introducción, HU-01 a HU-03.
-   - **Integrante B:** HU-04 a HU-07.
-   - **Integrante C:** HU-08 a HU-10 y Conclusión.
+### Pasos para Ejecutar las Pruebas:
+1. Iniciar la base de datos MongoDB local o en la nube (MongoDB Atlas).
+2. Ejecutar `npm run seed` para inicializar las colecciones con los datos deterministas de prueba.
+3. Iniciar el servidor con `npm run dev`.
+4. Importar `unifind.postman_collection.json` en Thunder Client o Postman.
+5. Ejecutar secuencialmente las peticiones configuradas:
 
----
-
-### Cronómetro de Sustentación (00:00 a 05:00)
-
-```
-[00:00] ── Integrante A (HU-01 a HU-03) ──> [01:30] ── Integrante B (HU-04 a HU-07) ──> [03:20] ── Integrante C (HU-08 a HU-10) ──> [05:00]
-```
-
-#### Minuto 00:00 - 00:30 | Funcionalidad 1: Registro Institucional (HU-01)
-- **Voz del expositor:**  
-  *"Buenos días profesor. Presentamos UniFind. Iniciamos con la **Historia de Usuario 1**: Como estudiante quiero registrarme con mi correo institucional de la Uniautónoma del Cauca para ingresar a la red de confianza."*
-- **Acción en Thunder Client:**  
-  Ejecutar `POST http://localhost:3000/api/v1/auth/register` con cuerpo JSON:
-  ```json
-  {
-    "fullName": "Diana Marcela Paz",
-    "institutionalEmail": "diana.paz@uniautonoma.edu.co",
-    "studentCode": "2023-5501",
-    "phone": "3123456789"
-  }
-  ```
-- **Mostrar al docente:** Status **201 Created**. Destacar la validación del regex institucional y la reputación inicial configurada por defecto. Mostrar en Compass el documento insertado en `users`.
+| # | Petición en la Colección | Método y Endpoint | Descripción Técnica |
+|---|---|---|---|
+| **01** | `01. [H1] Registro de Usuario Institucional` | `POST /api/v1/auth/register` | Valida regex de correo institucional y crea perfil con reputación inicial. |
+| **02** | `02. [H2] Crear Reporte Polimórfico con Pregunta de Comprobación` | `POST /api/v1/items` | Registra objeto polimórfico con atributos dinámicos, tags y claim question. |
+| **03** | `03. [H3] Búsqueda y Filtrado Multicriterio con Índice $text` | `GET /api/v1/items?search=casio...` | Consulta indexada por texto ponderado, filtros y paginación estructurada. |
+| **04** | `04. [H4] Detalle de Reporte con Sanitización de Privacidad` | `GET /api/v1/items/:id` | Enmascara datos del creador anónimo y oculta la respuesta secreta. |
+| **05** | `05. [H5] Verificación de Propiedad Respondiendo Claim Question` | `POST /api/v1/items/:id/claim-verify` | Normaliza texto (insensible a tildes/mayúsculas) y valida propiedad. |
+| **06** | `06. [H6] Apertura de Canal Privado entre Finder y Claimant` | `POST /api/v1/chats` | Inicializa conversación y actualiza el objeto automáticamente a `in_process`. |
+| **07** | `07. [H7] Envío de Mensaje Atómico en Canal de Chat` | `POST /api/v1/chats/:id/messages` | Inserta mensaje y actualiza atómicamente `lastMessage` y `unreadCount`. |
+| **08** | `08. [H8] Transición de Estado a 'returned' y Vinculación de Receptor` | `PATCH /api/v1/items/:id/status` | Marca como entregado y enlaza la referencia del estudiante receptor. |
+| **09** | `09. [H9] Calificación de Usuario y Recálculo Ponderado de Reputación` | `POST /api/v1/users/:id/rate` | Calcula promedio ponderado de calificación e incrementa `returnedCount`. |
+| **10** | `10. [H10] Agregación de Zonas Críticas de Pérdida (Campus Hotspots)` | `GET /api/v1/analytics/hotspots` | Ejecuta pipeline de agregación (`$match`, `$group`, `$sort`, `$limit`, `$project`). |
+| **11** | `11. [BONUS-ERROR] Validación Rechazo Correo No Institucional` | `POST /api/v1/auth/register` | Demuestra la respuesta controlada `400 Bad Request` ante entradas inválidas. |
 
 ---
 
-#### Minuto 00:30 - 01:00 | Funcionalidad 2: Publicación de Reporte Polimórfico (HU-02)
-- **Voz del expositor:**  
-  *"Continuamos con la **Historia de Usuario 2**: Como estudiante quiero publicar un reporte de un objeto encontrado con atributos dinámicos y pregunta de comprobación para evitar reclamos fraudulentos protegiendo mi anonimato."*
-- **Acción en Thunder Client:**  
-  Ejecutar `POST http://localhost:3000/api/v1/items` con:
-  ```json
-  {
-    "title": "Audífonos Inalámbricos Sony WH-1000XM4",
-    "type": "found",
-    "category": "electronics",
-    "description": "Audífonos de diadema negros encontrados en la sala de sistemas.",
-    "location": { "campus": "Sede Principal", "building": "Edificio B", "specificArea": "Sala 102" },
-    "attributes": { "color": "Negro", "estuche": "Gris rígido" },
-    "tags": ["audifonos", "sony", "inalambricos"],
-    "privacy": {
-      "isAnonymous": true,
-      "postedBy": "{{carlos_id}}",
-      "claimQuestion": "¿Qué sticker tiene pegado el estuche de los audífonos?",
-      "claimAnswer": "Sticker de Linux Tux"
-    }
-  }
-  ```
-- **Mostrar al docente:** Status **201 Created**. Copiar el `_id` generado del nuevo objeto para las siguientes peticiones.
-
----
-
-#### Minuto 01:00 - 01:30 | Funcionalidad 3: Búsqueda Multicriterio y Full-Text (HU-03)
-- **Voz del expositor:**  
-  *"Pasamos a la **Historia de Usuario 3**: Como estudiante que perdió su pertenencia, quiero buscar en el catálogo mediante filtros y búsqueda de texto completo para localizar mi objeto rápidamente."*
-- **Acción en Thunder Client:**  
-  Ejecutar `GET http://localhost:3000/api/v1/items?search=calculadora&type=found&building=Edificio%20B`.
-- **Mostrar al docente:** Status **200 OK**. Explicar el uso del operador `$text` indexado sobre `title`, `description` y `tags`, ordenado por relevancia `textScore`, y los metadatos de paginación (`total`, `page`, `totalPages`).
-
----
-
-#### Minuto 01:30 - 02:05 | Funcionalidad 4: Consulta con Sanitización de Privacidad (HU-04)
-- **Voz del expositor:**  
-  *"Cedo la palabra a mi compañero para la **Historia de Usuario 4**: Como estudiante quiero ver el detalle de un objeto sin que se exponga la identidad del reportante anónimo ni la respuesta secreta."*
-- **Acción en Thunder Client:**  
-  Ejecutar `GET http://localhost:3000/api/v1/items/{{calculadora_id}}`.
-- **Mostrar al docente:** Status **200 OK**. Señalar en el JSON que el campo `claimAnswer` fue **eliminado** y `postedBy` aparece como `"Usuario Anónimo (Comunidad Uniautónoma)"`, protegiendo la privacidad del estudiante.
-
----
-
-#### Minuto 02:05 - 02:40 | Funcionalidad 5: Comprobación de Propiedad (HU-05)
-- **Voz del expositor:**  
-  *"Para la **Historia de Usuario 5**: Como dueño legítimo quiero responder la pregunta secreta para demostrar mi pertenencia."*
-- **Acción en Thunder Client:**  
-  Ejecutar `POST http://localhost:3000/api/v1/items/{{calculadora_id}}/claim-verify` con:
-  ```json
-  {
-    "answer": "Tapa azul con iniciales CM",
-    "claimantId": "{{valentina_id}}"
-  }
-  ```
-- **Mostrar al docente:** Status **200 OK** con `"claimVerified": true`. Mencionar la normalización Unicode implementada para tolerar acentos y mayúsculas. (Opcional rápido: enviar respuesta errónea para mostrar el rechazo **400 Bad Request**).
-
----
-
-#### Minuto 02:40 - 03:20 | Funcionalidad 6: Apertura de Canal Privado de Entrega (HU-06)
-- **Voz del expositor:**  
-  *"Con la propiedad verificada, pasamos a la **Historia de Usuario 6**: Como reclamante quiero abrir un canal de chat con el reportante para coordinar el encuentro en el campus."*
-- **Acción en Thunder Client:**  
-  Ejecutar `POST http://localhost:3000/api/v1/chats` con:
-  ```json
-  {
-    "itemId": "{{calculadora_id}}",
-    "claimantId": "{{valentina_id}}"
-  }
-  ```
-- **Mostrar al docente:** Status **201 Created** (o **200 OK** si ya estaba creado). Señalar que el objeto pasó automáticamente de `status: "active"` a `status: "in_process"` en MongoDB, impidiendo que terceros lo reclamen.
-
----
-
-#### Minuto 03:20 - 03:55 | Funcionalidad 7: Mensajería con Actualización Atómica (HU-07)
-- **Voz del expositor:**  
-  *"Para la **Historia de Usuario 7**: Como participante quiero enviar un mensaje en el chat para acordar la hora y punto de entrega en el campus."*
-- **Acción en Thunder Client:**  
-  Ejecutar `POST http://localhost:3000/api/v1/chats/{{chat_id}}/messages` con:
-  ```json
-  {
-    "senderId": "{{valentina_id}}",
-    "content": "Perfecto Carlos, nos vemos a las 3:00 PM frente a la biblioteca."
-  }
-  ```
-- **Mostrar al docente:** Status **201 Created**. Explicar la operación atómica en MongoDB: se inserta el `Message` y en `Chat` se ejecuta un `$set` sobre `lastMessage` y un `$inc` sobre `unreadCount` del receptor simultáneamente.
-
----
-
-#### Minuto 03:55 - 04:25 | Funcionalidad 8: Cierre de Devolución y Trazabilidad (HU-08)
-- **Voz del expositor:**  
-  *"Tomo la palabra para la **Historia de Usuario 8**: Como quien entregó el objeto quiero marcar el caso como devuelto asociando al receptor para formalizar el cierre."*
-- **Acción en Thunder Client:**  
-  Ejecutar `PATCH http://localhost:3000/api/v1/items/{{calculadora_id}}/status` con:
-  ```json
-  {
-    "status": "returned",
-    "returnedTo": "{{valentina_id}}"
-  }
-  ```
-- **Mostrar al docente:** Status **200 OK**. Mostrar en la respuesta cómo el campo `returnedTo` queda poblado con la información de Valentina y el estado cambia a `returned`.
-
----
-
-#### Minuto 04:25 - 04:45 | Funcionalidad 9: Reputación y Calificación Ponderada (HU-09)
-- **Voz del expositor:**  
-  *"En la **Historia de Usuario 9**: Como dueño que recuperó su objeto quiero calificar la honestidad del compañero que me lo devolvió para recompensar su buen comportamiento."*
-- **Acción en Thunder Client:**  
-  Ejecutar `POST http://localhost:3000/api/v1/users/{{carlos_id}}/rate` con:
-  ```json
-  {
-    "rating": 5,
-    "raterId": "{{valentina_id}}",
-    "itemId": "{{calculadora_id}}",
-    "comment": "Excelente honestidad, me devolvió la calculadora en perfecto estado."
-  }
-  ```
-- **Mostrar al docente:** Status **200 OK**. Mostrar el incremento de `returnedCount` (ahora 3) y el recálculo ponderado del `rating`.
-
----
-
-#### Minuto 04:45 - 05:00 | Funcionalidad 10: Analítica de Hotspots del Campus (HU-10) y Cierre
-- **Voz del expositor:**  
-  *"Finalizamos con la **Historia de Usuario 10**: Como directivo de bienestar quiero consultar un reporte analítico de los edificios con mayor pérdida de objetos."*
-- **Acción en Thunder Client:**  
-  Ejecutar `GET http://localhost:3000/api/v1/analytics/hotspots?limit=3`.
-- **Mostrar al docente:** Status **200 OK**. Destacar el pipeline de agregación ejecutado en MongoDB (`$match`, `$group`, `$sort`, `$limit`, `$project`), mostrando que el **Edificio B** lidera el ranking de incidentes de pérdida. Concluir: *"Con esto cumplimos las 10 funcionalidades solicitadas en los 5 minutos exactos. Muchas gracias."*
-
----
-
-## 9. Estructura de Directorios del Proyecto
+## 9. Estructura del Repositorio
 
 ```text
 parcial2/
-├── .env                              # Variables de entorno locales
 ├── .env.example                      # Plantilla de variables de entorno
-├── .gitignore                        # Reglas de exclusión de git
+├── .gitignore                        # Reglas de exclusión de git (node_modules, .env, personal/)
 ├── app.js                            # Inicialización y configuración de Express y middlewares
-├── index.js                          # Punto de entrada principal y conexión de servidor
+├── index.js                          # Punto de entrada principal y conexión a MongoDB
 ├── package.json                      # Metadatos del proyecto y dependencias
 ├── seed.js                           # Script automatizado de población de datos de prueba
-├── README.md                         # Documentación técnica principal y guía de sustentación
-├── historias-usuarios.md             # Especificación formal de las 10 Historias de Usuario (Gherkin)
-├── Parcial_2_API_REST_Node_y_MongoDB.pdf # Guía oficial del examen parcial
+├── README.md                         # Documentación técnica de la API REST
+├── historias-usuarios.md             # Especificación formal de las 10 Historias de Usuario
+├── unifind.postman_collection.json   # Colección importable para Thunder Client y Postman
 └── src/
     ├── config/
     │   └── database.js               # Conexión persistente a MongoDB con Mongoose
@@ -535,12 +384,10 @@ parcial2/
 
 ---
 
-## 10. Conclusiones y Cumplimiento de la Rúbrica
+## 10. Características Técnicas del Backend
 
-El proyecto **UniFind** cumple de forma íntegra con todos los criterios de evaluación establecidos en la guía del **Parcial 2**:
-1. **MVP Coherente y Completo (15%):** Resuelve una problemática real de la comunidad universitaria.
-2. **API REST en Node.js (20%):** Enrutamiento modular, verbos HTTP estandarizados (`GET`, `POST`, `PATCH`), respuestas JSON estructuradas y manejo robusto de excepciones.
-3. **Persistencia en MongoDB (15%):** Modelado relacional y embebido con Mongoose, índices de texto compuesto (`$text`), operaciones atómicas concurrentes (`$inc`, `$set`) y agregaciones avanzadas (`$group`, `$project`).
-4. **Historias de Usuario (10%):** 10 historias detalladas bajo la estructura estándar `Como [rol], quiero [acción], para [beneficio]` con criterios de aceptación Gherkin y trazabilidad en [historias-usuarios.md](file:///Users/salomontilla/Universidad/semestre_6/bd_avanzadas/parcial2/historias-usuarios.md).
-5. **Demostración Funcional y Sustentación (30%):** Colección parametrizada para Thunder Client/Postman y cronómetro estratégico de 5 minutos con distribución para todo el equipo.
-6. **Publicación y Entrega (10%):** Repositorio documentado con README profesional y código fuente limpio.
+1. **Diseño Modular y Estándares REST:** Arquitectura separada por capas (rutas, controladores, modelos, middlewares) con métodos HTTP semánticos (`GET`, `POST`, `PATCH`) y códigos de estado estandarizados (`200`, `201`, `400`, `404`, `500`).
+2. **Modelado Avanzado en MongoDB:** Implementación de esquemas polimórficos con `Mongoose` (`Schema.Types.Mixed`), subdocumentos embebidos e índices de texto completo (`$text`) para búsquedas en lenguaje natural.
+3. **Operaciones Atómicas y Agregaciones:** Actualización atómica de contadores y estados mediante `$inc` y `$set` para evitar condiciones de carrera, y pipelines de agregación (`$match`, `$group`, `$sort`, `$limit`, `$project`) para reportes analíticos de alta eficiencia.
+4. **Seguridad y Validación Estricta:** Expresiones regulares para control de dominio institucional, validación de referencias relacionales y sanitización activa de privacidad en capas de presentación.
+
