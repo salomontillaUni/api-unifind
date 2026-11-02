@@ -1,14 +1,14 @@
 const User = require('../models/User');
 
 /**
- * @desc    Calificar honestidad y cumplimiento del usuario que devolvió el objeto
+ * @desc    Calificar honestidad y cumplimiento del usuario que devolvió el objeto - HU-07
  * @route   POST /api/v1/users/:id/rate
- * @access  Public
+ * @access  Public (Sin Auth)
  */
 const rateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { rating, raterId, itemId, comment } = req.body;
+    const { rating = 5, raterId, itemId, comment, tags, badges } = req.body;
 
     const numRating = Number(rating);
     if (isNaN(numRating) || numRating < 1 || numRating > 5) {
@@ -36,25 +36,43 @@ const rateUser = async (req, res, next) => {
       });
     }
 
-    const currentCount = user.reputation?.returnedCount || 0;
-    const currentRating = user.reputation?.rating ?? 5.0;
+    if (!user.reputation) {
+      user.reputation = {
+        returnedCount: 0,
+        rating: 5.0,
+        honorPoints: 100,
+        badges: []
+      };
+    }
 
+    const currentCount = user.reputation.returnedCount || 0;
+    const currentRating = user.reputation.rating ?? 5.0;
+    const currentHonor = user.reputation.honorPoints !== undefined ? user.reputation.honorPoints : 100;
+    const currentBadges = Array.isArray(user.reputation.badges) ? user.reputation.badges : [];
+
+    // 1. Recalcular promedio ponderado de estrellas
     let newRating;
     const newCount = currentCount + 1;
 
     if (currentCount === 0) {
       newRating = numRating;
     } else {
-      // Promedio ponderado de calificaciones anteriores
       newRating = ((currentRating * currentCount) + numRating) / newCount;
     }
-
-    // Redondear a 1 decimal para legibilidad estándar (ej. 4.8)
     const roundedRating = Math.round(newRating * 10) / 10;
+
+    // 2. Sumar +100 Puntos de Honor (Criterio de aceptación HU-07)
+    const newHonorPoints = currentHonor + 100;
+
+    // 3. Agregar nuevos reconocimientos/badges (ej. 'Puntual', 'Muy Honesto')
+    const incomingBadges = Array.isArray(badges) ? badges : (Array.isArray(tags) ? tags : []);
+    const mergedBadges = Array.from(new Set([...currentBadges, ...incomingBadges.filter(Boolean)]));
 
     user.reputation = {
       returnedCount: newCount,
-      rating: roundedRating
+      rating: roundedRating,
+      honorPoints: newHonorPoints,
+      badges: mergedBadges
     };
 
     await user.save();
@@ -62,7 +80,7 @@ const rateUser = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       statusCode: 200,
-      message: 'Calificación registrada exitosamente y reputación actualizada',
+      message: 'Calificación registrada exitosamente, +100 Puntos de Honor acreditados y reputación actualizada',
       data: {
         userId: user._id,
         fullName: user.fullName,
@@ -73,7 +91,9 @@ const rateUser = async (req, res, next) => {
           submittedRating: numRating,
           raterId: raterId || null,
           itemId: itemId || null,
-          comment: comment ? comment.trim() : null
+          comment: comment ? comment.trim() : null,
+          awardedHonorPoints: 100,
+          awardedBadges: incomingBadges
         }
       }
     });

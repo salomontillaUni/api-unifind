@@ -40,6 +40,14 @@ const userSchema = new mongoose.Schema(
         default: 5.0,
         min: 1.0,
         max: 5.0
+      },
+      honorPoints: {
+        type: Number,
+        default: 100
+      },
+      badges: {
+        type: [String],
+        default: []
       }
     }
   },

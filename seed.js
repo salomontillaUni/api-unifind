@@ -19,7 +19,7 @@ const seedData = async () => {
       Message.deleteMany({})
     ]);
 
-    console.log('[Seed] Insertando usuarios universitarios de prueba...');
+    console.log('[Seed] Insertando usuarios universitarios con sistema de Puntos de Honor...');
     const USER_CARLOS_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10001');
     const USER_VALENTINA_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10002');
     const USER_ANDRES_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10003');
@@ -42,7 +42,9 @@ const seedData = async () => {
         phone: '3104567890',
         reputation: {
           returnedCount: 2,
-          rating: 4.9
+          rating: 4.9,
+          honorPoints: 200,
+          badges: ['Puntual', 'Custodio Confiable']
         }
       },
       {
@@ -53,7 +55,9 @@ const seedData = async () => {
         phone: '3157891234',
         reputation: {
           returnedCount: 0,
-          rating: 5.0
+          rating: 5.0,
+          honorPoints: 100,
+          badges: ['Comunidad Solidaria']
         }
       },
       {
@@ -64,42 +68,46 @@ const seedData = async () => {
         phone: '3189012345',
         reputation: {
           returnedCount: 1,
-          rating: 5.0
+          rating: 5.0,
+          honorPoints: 150,
+          badges: ['Honestidad UAC']
         }
       }
     ]);
 
     const [carlos, valentina, andres] = users;
 
-    console.log('[Seed] Insertando reportes polimórficos de objetos...');
+    console.log('[Seed] Insertando reportes de objetos exactos para el MVP móvil (HU-01 a HU-05)...');
     const items = await Item.insertMany([
       {
         _id: ITEM_CASIO_ID,
-        title: 'Calculadora Científica Casio fx-991LAX',
+        code: 'UAC-8841',
+        title: 'Calculadora Científica Casio fx-570ES',
         type: 'found',
         status: 'active',
         category: 'electronics',
-        description: 'Calculadora científica gris con pantalla solar encontrada en una banca al finalizar clase de Física.',
+        description: 'Calculadora científica gris con tapa protectora encontrada en el Laboratorio 201 después de clase.',
         location: {
           campus: 'Sede Principal',
-          building: 'Edificio B',
-          specificArea: 'Salón 204'
+          building: 'Edificio A',
+          specificArea: 'Lab 201'
         },
         attributes: {
           color: 'Gris oscuro',
-          modelo: 'fx-991LAX',
-          estadoFisico: 'Buen estado'
+          modelo: 'fx-570ES Plus',
+          estadoFisico: 'Excelente'
         },
-        tags: ['calculadora', 'casio', 'ingenieria', 'electronica'],
+        tags: ['calculadora', 'casio', 'ingenieria', 'laboratorio', 'electronica'],
         privacy: {
           isAnonymous: true,
           postedBy: carlos._id,
-          claimQuestion: '¿De qué color es la tapa protectora y qué iniciales tiene grabadas?',
-          claimAnswer: 'tapa azul con iniciales CM'
+          claimQuestion: '¿Qué iniciales están grabadas en el reverso?',
+          claimAnswer: 'CM'
         }
       },
       {
         _id: ITEM_CARNET_ID,
+        code: 'UAC-2045',
         title: 'Carnet Estudiantil y Tarjeta Bancaria',
         type: 'lost',
         status: 'active',
@@ -124,6 +132,7 @@ const seedData = async () => {
       },
       {
         _id: ITEM_CUADERNO_ID,
+        code: 'UAC-3088',
         title: 'Cuaderno argollado de Cálculo Integral',
         type: 'lost',
         status: 'active',
@@ -146,33 +155,37 @@ const seedData = async () => {
       },
       {
         _id: ITEM_TERMO_ID,
+        code: 'UAC-4091',
         title: 'Termo metálico azul tipo Stanley',
-        type: 'lost',
+        type: 'found',
         status: 'active',
-        category: 'accessories',
-        description: 'Termo térmico con sticker de desarrollo web extraviado en mesa de laboratorio.',
+        category: 'clothing',
+        description: 'Termo térmico azul mate con sticker de desarrollo web hallado en mesa de cafetería.',
         location: {
           campus: 'Sede Principal',
           building: 'Edificio B',
-          specificArea: 'Laboratorio de Química'
+          specificArea: 'Cafetería piso 1'
         },
         attributes: {
           capacidad: '750ml',
           color: 'Azul mate'
         },
-        tags: ['termo', 'stanley', 'laboratorio', 'edificio b'],
+        tags: ['termo', 'stanley', 'cafeteria'],
         privacy: {
           isAnonymous: false,
-          postedBy: valentina._id
+          postedBy: carlos._id,
+          claimQuestion: '¿Qué sticker tiene pegado en la parte inferior?',
+          claimAnswer: 'React Developer'
         }
       },
       {
         _id: ITEM_CHAQUETA_ID,
+        code: 'UAC-5512',
         title: 'Chaqueta impermeable negra con capota',
         type: 'lost',
         status: 'active',
         category: 'clothing',
-        description: 'Chaqueta deportiva negra talla M olvidada en el perchero del pasillo.',
+        description: 'Chaqueta deportiva negra talla M olvidada en el perchero del pasillo del Edificio B.',
         location: {
           campus: 'Sede Principal',
           building: 'Edificio B',
@@ -200,7 +213,7 @@ const seedData = async () => {
       status: 'open',
       lastMessage: {
         senderId: valentina._id,
-        text: 'Hola Carlos, creo que la calculadora que encontraste es la mía. Ya respondí la pregunta de comprobación.',
+        text: 'Hola Carlos, creo que la calculadora Casio es la mía. Ya respondí la pregunta de comprobación.',
         sentAt: new Date()
       },
       unreadCount: {
@@ -213,23 +226,23 @@ const seedData = async () => {
       _id: MSG_DEMO_ID,
       chatId: demoChat._id,
       senderId: valentina._id,
-      content: 'Hola Carlos, creo que la calculadora que encontraste es la mía. Ya respondí la pregunta de comprobación.',
+      content: 'Hola Carlos, creo que la calculadora Casio es la mía. Ya respondí la pregunta de comprobación.',
       attachments: [],
       sentAt: new Date()
     });
 
     console.log('====================================================');
-    console.log('✅ Base de datos poblada exitosamente con datos reales:');
+    console.log('✅ Base de datos poblada exitosamente para MVP Móvil:');
     console.log(`- Usuarios creados: ${users.length}`);
     console.log(`- Reportes de objetos: ${items.length}`);
     console.log(`- Chats inicializados: 1`);
     console.log('----------------------------------------------------');
-    console.log('IDs de referencia para pruebas en Thunder Client:');
-    console.log(`- Carlos (Finder anónimo):   ${carlos._id}`);
-    console.log(`- Valentina (Claimant):      ${valentina._id}`);
-    console.log(`- Andrés (Estudiante):       ${andres._id}`);
-    console.log(`- Objeto con claimQuestion:  ${calculadoraItem._id}`);
-    console.log(`- Chat de demostración:      ${demoChat._id}`);
+    console.log('IDs y Códigos de referencia para emulador Android / Postman:');
+    console.log(`- Carlos Muñoz (200 pts):     ${carlos._id}`);
+    console.log(`- Valentina Gómez (100 pts):   ${valentina._id}`);
+    console.log(`- Andrés Salazar (150 pts):    ${andres._id}`);
+    console.log(`- Calculadora Casio fx-570ES:  ${calculadoraItem._id} (Código: UAC-8841)`);
+    console.log(`- Chat de demostración:        ${demoChat._id}`);
     console.log('====================================================');
 
     await mongoose.disconnect();

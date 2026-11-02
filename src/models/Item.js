@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema(
   {
+    code: {
+      type: String,
+      trim: true,
+      uppercase: true
+    },
     title: {
       type: String,
       required: [true, 'El título del objeto es obligatorio'],
@@ -66,8 +71,7 @@ const itemSchema = new mongoose.Schema(
       },
       postedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: [true, 'El usuario que publica es obligatorio']
+        ref: 'User'
       },
       claimQuestion: {
         type: String,
@@ -102,6 +106,7 @@ itemSchema.index(
 );
 
 // Índices adicionales para acelerar filtros comunes
+itemSchema.index({ code: 1 });
 itemSchema.index({ type: 1, status: 1 });
 itemSchema.index({ 'location.building': 1 });
 itemSchema.index({ category: 1 });

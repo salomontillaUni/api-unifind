@@ -1,12 +1,16 @@
+const mongoose = require('mongoose');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const Item = require('../models/Item');
 const User = require('../models/User');
 
+const DEFAULT_COMMUNITY_USER_ID = '670c1f1e1c9d440000a10001'; // Carlos Muñoz (Hallador)
+const DEFAULT_CLAIMANT_USER_ID = '670c1f1e1c9d440000a10002';  // Valentina Gómez (Reclamante)
+
 /**
- * @desc    Crear o inicializar un canal de chat entre reportante y solicitante
+ * @desc    Crear o inicializar un canal de chat entre reportante y solicitante - HU-06
  * @route   POST /api/v1/chats
- * @access  Public
+ * @access  Public (Sin Auth)
  */
 const createChat = async (req, res, next) => {
   try {
@@ -20,46 +24,54 @@ const createChat = async (req, res, next) => {
       });
     }
 
-    const item = await Item.findById(itemId);
+    let item = null;
+    const cleanId = itemId.toString().trim().replace(/^#/, '').toUpperCase();
+
+    if (mongoose.Types.ObjectId.isValid(itemId)) {
+      item = await Item.findById(itemId);
+    }
+
+    if (!item) {
+      item = await Item.findOne({
+        $or: [{ code: cleanId }, { code: `#${cleanId}` }, { code: itemId }]
+      });
+    }
+
     if (!item) {
       return res.status(404).json({
         success: false,
         statusCode: 404,
-        error: `No se encontró ningún reporte de objeto con el ID: ${itemId}`
+        error: `No se encontró ningún reporte de objeto con el ID o código: ${itemId}`
       });
     }
 
-    const posterId = item.privacy.postedBy.toString();
+    const posterId = (item.privacy?.postedBy || DEFAULT_COMMUNITY_USER_ID).toString();
     let partnerId = claimantId;
 
     if (!partnerId && Array.isArray(participants) && participants.length >= 2) {
       partnerId = participants.find((p) => p.toString() !== posterId);
     }
 
+    // Soporte 'Sin Auth': Auto-asignar reclamante comunitario por defecto
     if (!partnerId) {
-      return res.status(400).json({
-        success: false,
-        statusCode: 400,
-        error: 'Se requiere claimantId o un arreglo de participants con los involucrados'
-      });
+      partnerId = posterId === DEFAULT_CLAIMANT_USER_ID ? DEFAULT_COMMUNITY_USER_ID : DEFAULT_CLAIMANT_USER_ID;
     }
 
     if (posterId === partnerId.toString()) {
-      return res.status(400).json({
-        success: false,
-        statusCode: 400,
-        error: 'El reportante del objeto no puede iniciar un chat de entrega consigo mismo'
-      });
+      partnerId = DEFAULT_CLAIMANT_USER_ID;
     }
 
-    // Verificar que el solicitante exista en la BD
-    const claimantExists = await User.findById(partnerId);
-    if (!claimantExists) {
-      return res.status(404).json({
-        success: false,
-        statusCode: 404,
-        error: 'El usuario solicitante no existe en la base de datos'
-      });
+    // Asegurar que el usuario solicitante exista en la BD
+    if (mongoose.Types.ObjectId.isValid(partnerId)) {
+      const claimantExists = await User.findById(partnerId);
+      if (!claimantExists) {
+        await User.create({
+          _id: partnerId,
+          fullName: 'Valentina Gómez Restrepo',
+          institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
+          studentCode: '2022-2045'
+        }).catch(() => {});
+      }
     }
 
     // Verificar si ya existe un chat activo para este ítem entre estos participantes
@@ -68,7 +80,7 @@ const createChat = async (req, res, next) => {
       participants: { $all: [posterId, partnerId] }
     })
       .populate('participants', 'fullName institutionalEmail studentCode reputation')
-      .populate('itemId', 'title type category status location');
+      .populate('itemId', 'code title type category status location');
 
     if (existingChat) {
       // Asegurar que el estado del ítem refleje in_process
@@ -104,7 +116,7 @@ const createChat = async (req, res, next) => {
 
     const populatedChat = await Chat.findById(newChat._id)
       .populate('participants', 'fullName institutionalEmail studentCode reputation')
-      .populate('itemId', 'title type category status location');
+      .populate('itemId', 'code title type category status location');
 
     return res.status(201).json({
       success: true,
@@ -118,24 +130,24 @@ const createChat = async (req, res, next) => {
 };
 
 /**
- * @desc    Enviar un mensaje y actualizar atómicamente el estado del chat
+ * @desc    Enviar un mensaje y actualizar atómicamente el estado del chat - HU-06
  * @route   POST /api/v1/chats/:id/messages
- * @access  Public
+ * @access  Public (Sin Auth)
  */
 const sendMessage = async (req, res, next) => {
   try {
     const { id: chatId } = req.params;
-    const { senderId, content, attachments } = req.body;
+    let { senderId, content, attachments } = req.body;
 
-    if (!senderId || !content || !content.trim()) {
+    if (!content || !content.trim()) {
       return res.status(400).json({
         success: false,
         statusCode: 400,
-        error: 'Los campos senderId y content son obligatorios'
+        error: 'El contenido del mensaje no puede estar vacío'
       });
     }
 
-    const chat = await Chat.findById(chatId);
+    const chat = await Chat.findById(chatId).populate('itemId');
     if (!chat) {
       return res.status(404).json({
         success: false,
@@ -144,17 +156,17 @@ const sendMessage = async (req, res, next) => {
       });
     }
 
-    // Validar que el senderId pertenezca al chat
-    const isParticipant = chat.participants.some(
-      (participantId) => participantId.toString() === senderId.toString()
-    );
+    // Soporte 'Sin Auth': Auto-asignar remitente si no se envía en body
+    if (!senderId) {
+      const posterId = chat.itemId?.privacy?.postedBy?.toString() || DEFAULT_COMMUNITY_USER_ID;
+      const nonPoster = chat.participants.find((p) => p.toString() !== posterId);
+      senderId = nonPoster ? nonPoster.toString() : (chat.participants[1]?.toString() || DEFAULT_CLAIMANT_USER_ID);
+    }
 
-    if (!isParticipant) {
-      return res.status(403).json({
-        success: false,
-        statusCode: 403,
-        error: 'El remitente no es participante de esta conversación'
-      });
+    // Asegurar que el remitente esté registrado entre los participantes
+    if (!chat.participants.some((p) => p.toString() === senderId.toString())) {
+      chat.participants.push(senderId);
+      await chat.save();
     }
 
     // 1. Crear documento Message
@@ -246,14 +258,14 @@ const getChatMessages = async (req, res, next) => {
 };
 
 /**
- * @desc    Listar todos los chats (útil para auditoría y visualización de pruebas)
+ * @desc    Listar todos los chats (soporte para demostración)
  * @route   GET /api/v1/chats
  * @access  Public
  */
 const getChats = async (req, res, next) => {
   try {
     const chats = await Chat.find()
-      .populate('itemId', 'title type category status')
+      .populate('itemId', 'code title type category status location')
       .populate('participants', 'fullName institutionalEmail studentCode')
       .sort({ updatedAt: -1 });
 
