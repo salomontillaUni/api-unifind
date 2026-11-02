@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "e5a8f4c2-9a3b-4c5e-8d6f-7b1e2a3c4d5e",
     "name": "UniFind - Sistema Universitario de Objetos Perdidos",
-    "description": "Colección oficial oficial para evaluación técnica y sustentación del proyecto UniFind (Uniautónoma del Cauca).\n\nEstructurada en dos carpetas principales:\n1. 📱 **MVP Móvil (Sin Auth) — HU-01 a HU-07**: Flujo optimizado para emulador Android con soporte 'Sin Auth', códigos amigables (`#UAC-8841`), DTOs planos (`campusLocation`, `roomReference`, `timeAgo`), filtro anti-fraude y sistema de Puntos de Honor (+100 pts).\n2. 🏛️ **Sustentación Parcial 2 — BD Avanzadas (H1 a H10 + Bonus)**: Flujo académico completo con 10 historias de usuario evaluables, modelo polimórfico, índice $text, aggregations y validación estricta institucional con código 400.\n\nCompatible 100% con Postman v2.1.0 y Thunder Client.",
+    "description": "Colección oficial para evaluación técnica y sustentación del proyecto UniFind (Uniautónoma del Cauca).\n\nEstructurada en dos carpetas principales:\n1. 📱 **MVP Móvil Unifind (Portería, Flujos A/B & Gamificación)**: Flujo optimizado para emulador y app Android con Login Institucional rápido, filtro Portería (`custodyType=PORTERIA`), Flujo A (FOUND Exprés), Flujo B (LOST Detallado con señas), Reclamo con Ticket de retiro, Notificaciones de hallazgo (`LEFT_AT_PORTERIA`/`HAVE_IT_WITH_ME`), Chat y Gamificación (+100 Puntos de Honor).\n2. 🏛️ **Sustentación Parcial 2 — BD Avanzadas (H1 a H10 + Bonus)**: Flujo académico completo con 10 historias de usuario evaluables, modelo polimórfico, índice $text, aggregations y validación estricta institucional con código 400.\n\nCompatible 100% con Postman v2.1.0 y Thunder Client.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -16,7 +16,19 @@
       "key": "itemCode",
       "value": "UAC-8841",
       "type": "string",
-      "description": "Código amigable del objeto de prueba (Calculadora Casio fx-570ES)"
+      "description": "Código amigable de la Calculadora Casio fx-570ES (Custodia Personal)"
+    },
+    {
+      "key": "termoCode",
+      "value": "UAC-4091",
+      "type": "string",
+      "description": "Código amigable del Termo Stanley (Custodia Portería)"
+    },
+    {
+      "key": "carnetCode",
+      "value": "UAC-2045",
+      "type": "string",
+      "description": "Código amigable del Carnet Estudiantil (Objeto Perdido)"
     },
     {
       "key": "itemId",
@@ -51,11 +63,71 @@
   ],
   "item": [
     {
-      "name": "📱 MVP Móvil (Sin Auth) - HU-01 a HU-07",
-      "description": "Conjunto de peticiones adaptadas específicamente para el cliente Android Móvil bajo la premisa de uso comunitario 'Sin Auth'.\n\nIncluye códigos institucionales amigables (`#UAC-XXXX`), campos enriquecidos para la interfaz gráfica (`campusLocation`, `roomReference`, `timeAgo`), mecanismo anti-fraude confidencial y acreditación de Puntos de Honor (+100 pts).",
+      "name": "📱 MVP Móvil Unifind (Portería, Flujos A/B & Gamificación)",
+      "description": "Conjunto enriquecido de peticiones para el cliente Android Móvil incorporando las dos experiencias diferenciadas (Flujo A FOUND Exprés y Flujo B LOST Detallado), custodia en Portería, tickets de retiro, notificaciones de hallazgo y Puntos de Honor.",
       "item": [
         {
-          "name": "HU-01 / HU-02: Feed Principal & Filtros Dinámicos (DTO Móvil)",
+          "name": "01. [Auth] Login Institucional Rápido / Auto-registro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Estado HTTP es 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Sesión iniciada con correo @uniautonoma.edu.co\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.institutionalEmail).to.include('@uniautonoma.edu.co');",
+                  "    pm.expect(json.data.reputation).to.have.property('honorPoints');",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"currentUserId\", json.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institutionalEmail\": \"carlos.munoz@uniautonoma.edu.co\",\n  \"studentCode\": \"2023-1001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "### Login Institucional Rápido (Auto-registro)\nPermite el inicio de sesión o auto-registro transparente en la app móvil validando el correo `@uniautonoma.edu.co` y el código estudiantil, retornando los datos del usuario con sus Puntos de Honor iniciales."
+          },
+          "response": []
+        },
+        {
+          "name": "02. [HU-01 / HU-02] Feed Principal & Filtros Dinámicos (DTO Móvil)",
           "event": [
             {
               "listen": "test",
@@ -135,7 +207,57 @@
           "response": []
         },
         {
-          "name": "HU-03 / HU-04: Publicación Sin Auth con Pregunta Anti-Fraude (Filtro El Grifo)",
+          "name": "03. [Portería] Feed de Objetos Custodiados en Portería",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Estado HTTP es 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Todos los objetos retornados tienen custodia de Portería\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "    pm.expect(json.data.length).to.be.above(0);",
+                  "    json.data.forEach(item => {",
+                  "        pm.expect(item.custodyType).to.eql('PORTERIA');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/items?custodyType=PORTERIA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "items"
+              ],
+              "query": [
+                {
+                  "key": "custodyType",
+                  "value": "PORTERIA",
+                  "description": "Filtro exclusivo para objetos resguardados físicamente en la Portería Principal del campus"
+                }
+              ]
+            },
+            "description": "### Vista de Objetos en Portería\nFiltra los objetos encontrados que fueron entregados bajo custodia del personal de vigilancia en la Portería Principal (`custodyType=PORTERIA`), listos para ser retirados mediante ticket seguro."
+          },
+          "response": []
+        },
+        {
+          "name": "04. [Flujo A] Creación Exprés de Objeto Encontrado (Custodia Portería)",
           "event": [
             {
               "listen": "test",
@@ -145,23 +267,13 @@
                   "    pm.response.to.have.status(201);",
                   "});",
                   "",
-                  "pm.test(\"Reporte registrado exitosamente con código UAC-XXXX generado\", function () {",
+                  "pm.test(\"Flujo A: Objeto registrado con custodia PORTERIA y código UAC\", function () {",
                   "    const json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
-                  "    pm.expect(json.data.code).to.match(/^#?UAC-\\d{4}$/);",
                   "    pm.expect(json.data.type).to.eql('found');",
-                  "});",
-                  "",
-                  "pm.test(\"Soporte 'Sin Auth': Custodio comunitario autoasignado\", function () {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.data.privacy.postedBy).to.be.an('object');",
-                  "    pm.expect(json.data.privacy.isAnonymous).to.be.true;",
-                  "});",
-                  "",
-                  "pm.test(\"Confidencialidad HU-04: claimAnswer jamás se expone en la respuesta\", function () {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.data.privacy.claimAnswer).to.be.undefined;",
-                  "    pm.expect(json.data.privacy.claimQuestion).to.be.ok;",
+                  "    pm.expect(json.data.custodyType).to.eql('PORTERIA');",
+                  "    pm.expect(json.data.code).to.match(/^#?UAC-\\d{4}$/);",
+                  "    pm.expect(json.data.photoUrl).to.be.ok;",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -178,7 +290,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Audífonos Inalámbricos Sony WH-1000XM4\",\n  \"type\": \"found\",\n  \"category\": \"Electrónica\",\n  \"campusLocation\": \"Sede Principal · Biblioteca\",\n  \"roomReference\": \"Sala de lectura piso 1\",\n  \"description\": \"Audífonos de diadema color negro en estuche rígido hallados en mesa de la biblioteca.\",\n  \"securityQuestion\": \"¿Qué sticker distintivo tiene el estuche protector?\",\n  \"securityAnswerExpected\": \"Sticker de astronauta azul\",\n  \"isAnonymous\": true\n}",
+              "raw": "{\n  \"title\": \"Llaves con Llavero Uniautónoma y USB\",\n  \"type\": \"found\",\n  \"category\": \"Accesorios\",\n  \"custodyType\": \"PORTERIA\",\n  \"campusZone\": \"Edificio A\",\n  \"locationReference\": \"Gradas principales de la entrada\",\n  \"brandAndColor\": \"Llavero acrílico azul y USB Kingston plateada\",\n  \"photoUrl\": \"https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -196,12 +308,68 @@
                 "items"
               ]
             },
-            "description": "### HU-03 & HU-04: Publicación de Reporte y Pregunta Anti-Fraude\nPermite reportar una pertenencia hallada sin obligar al usuario a iniciar sesión. El backend genera de inmediato el código amigable institucional (`#UAC-XXXX`), asigna el usuario comunitario por defecto y almacena la respuesta de seguridad de forma privada (nunca visible públicamente)."
+            "description": "### Flujo A (FOUND - Exprés Portería)\nRegistro inmediato y sin fricción de un objeto encontrado. No exige preguntas secretas; toma la foto, categoría, zona del campus y lo asigna a `custodyType: 'PORTERIA'`."
           },
           "response": []
         },
         {
-          "name": "HU-05: Consulta de Ficha Técnica por Código Amigable (UAC-8841)",
+          "name": "05. [Flujo B] Creación Detallada de Objeto Perdido (Dueño con Señas)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Estado HTTP es 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Flujo B: Objeto perdido con señas particulares sin custodia asignada\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.type).to.eql('lost');",
+                  "    pm.expect(json.data.custodyType).to.be.null;",
+                  "    pm.expect(json.data.distinguishingMarks).to.be.ok;",
+                  "    pm.expect(json.data.code).to.match(/^#?UAC-\\d{4}$/);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Calculadora Científica Casio fx-991LAX\",\n  \"type\": \"lost\",\n  \"category\": \"Electrónica\",\n  \"campusZone\": \"Edificio B\",\n  \"locationReference\": \"Salón 302 piso 3\",\n  \"brandAndColor\": \"Casio Gris y Negro\",\n  \"distinguishingMarks\": \"Tiene un sticker de gato astronauta en la tapa trasera y las iniciales MT grabadas con plumón plateado\",\n  \"photoUrl\": \"https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?w=500\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "items"
+              ]
+            },
+            "description": "### Flujo B (LOST - Detallado Dueño)\nEl estudiante publica una pertenencia extraviada describiendo señas particulares (`distinguishingMarks`) para que quien la halle pueda identificarla con certeza. No requiere `custodyType` (nulo) ni preguntas secretas."
+          },
+          "response": []
+        },
+        {
+          "name": "06. [HU-05] Consulta de Ficha Técnica por Código Amigable (UAC-8841)",
           "event": [
             {
               "listen": "test",
@@ -233,7 +401,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/items/UAC-8841",
+              "raw": "{{baseUrl}}/api/v1/items/{{itemCode}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -241,7 +409,7 @@
                 "api",
                 "v1",
                 "items",
-                "UAC-8841"
+                "{{itemCode}}"
               ]
             },
             "description": "### HU-05 Escenario 1: Consulta de Ficha Técnica\nPermite buscar un objeto directamente por su código amigable (`UAC-8841` o `#UAC-8841`), tal como lo hace el usuario al tocar una tarjeta en `DetailActivity` de Android."
@@ -249,7 +417,7 @@
           "response": []
         },
         {
-          "name": "HU-05: Validación de Pertenencia Respondiendo Pregunta de Seguridad",
+          "name": "07. [Reclamo Portería] Reclamar Objeto en Portería con Ticket de Entrega (UAC-4091)",
           "event": [
             {
               "listen": "test",
@@ -259,11 +427,13 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "",
-                  "pm.test(\"Verificación exitosa contra la respuesta anti-fraude\", function () {",
+                  "pm.test(\"Reclamo aprobado y ticket de entrega generado para Portería\", function () {",
                   "    const json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
-                  "    pm.expect(json.claimVerified).to.be.true;",
-                  "    pm.expect(json.claimantId).to.be.ok;",
+                  "    pm.expect(json.claimApproved).to.be.true;",
+                  "    pm.expect(json.custodyType).to.eql('PORTERIA');",
+                  "    pm.expect(json.deliveryToken).to.match(/^TICKET-\\d{4}-RET$/);",
+                  "    pm.expect(json.pickupLocation).to.include('Portería Principal');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -280,7 +450,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"claimAnswer\": \"CM\"\n}",
+              "raw": "{\n  \"ownershipProofText\": \"Es mi termo azul tipo Stanley que olvidé el viernes en la cafetería. Tiene sticker de React Developer.\",\n  \"securityAnswer\": \"React Developer\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -288,7 +458,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/items/UAC-8841/claim-verify",
+              "raw": "{{baseUrl}}/api/v1/items/{{termoCode}}/claim",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -296,16 +466,135 @@
                 "api",
                 "v1",
                 "items",
-                "UAC-8841",
-                "claim-verify"
+                "{{termoCode}}",
+                "claim"
               ]
             },
-            "description": "### HU-05 Escenario 2: Validación Anti-Fraude\nEl reclamante digita la respuesta a la pregunta secreta (`CM`). El servidor realiza una normalización insensible a mayúsculas y acentos, verificando la pertenencia legítima sin exponer los datos del hallador."
+            "description": "### Reclamo de Objeto en Portería\nEl dueño reclama una pertenencia bajo custodia de Portería (`UAC-4091`). El backend valida la comprobación y genera un **Ticket de Retiro digital** (`deliveryToken`: `TICKET-XXXX-RET`) que el estudiante presenta en la Portería Principal para recibir su objeto."
           },
           "response": []
         },
         {
-          "name": "HU-06: Apertura Directa de Chat Privado por Código (Sin Auth)",
+          "name": "08. [Notificar Hallazgo] Notificar Objeto Dejado en Portería (LEFT_AT_PORTERIA)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Estado HTTP es 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Notificación LEFT_AT_PORTERIA registrada y custodia actualizada\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.action).to.eql('LEFT_AT_PORTERIA');",
+                  "    pm.expect(json.custodyType).to.eql('PORTERIA');",
+                  "    pm.expect(json.data.status).to.eql('in_process');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"LEFT_AT_PORTERIA\",\n  \"finderNote\": \"Encontré la billetera en la cafetería y se la dejé al vigilante Don Ramiro en la Portería Principal.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/items/{{carnetCode}}/notify-found",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "items",
+                "{{carnetCode}}",
+                "notify-found"
+              ]
+            },
+            "description": "### Notificación de Hallazgo (Dejado en Portería)\nUn estudiante encuentra un objeto extraviado (`UAC-2045`, Carnet de Valentina) y notifica que lo dejó en custodia de la Portería Principal (`LEFT_AT_PORTERIA`). El objeto pasa automáticamente a estado `in_process` y `custodyType: 'PORTERIA'`."
+          },
+          "response": []
+        },
+        {
+          "name": "09. [Notificar Hallazgo] Notificar Objeto en Custodia Personal y Abrir Chat (HAVE_IT_WITH_ME)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Estado HTTP es 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Notificación HAVE_IT_WITH_ME registrada y canal de chat habilitado\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.action).to.eql('HAVE_IT_WITH_ME');",
+                  "    pm.expect(json.custodyType).to.eql('PERSONAL');",
+                  "    pm.expect(json.chatId).to.be.ok;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"chatId\", json.chatId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"HAVE_IT_WITH_ME\",\n  \"finderNote\": \"Tengo el carnet conmigo en la sala de lectura de la biblioteca por si vienes por él.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/items/{{carnetCode}}/notify-found",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "items",
+                "{{carnetCode}}",
+                "notify-found"
+              ]
+            },
+            "description": "### Notificación de Hallazgo (Custodia Personal con Chat)\nEl hallador avisa que tiene la pertenencia consigo (`HAVE_IT_WITH_ME`). El sistema asigna `custodyType: 'PERSONAL'` y habilita de inmediato un chat seguro entre el hallador y el dueño."
+          },
+          "response": []
+        },
+        {
+          "name": "10. [HU-06] Apertura Directa de Chat Privado por Código (Sin Auth)",
           "event": [
             {
               "listen": "test",
@@ -363,7 +652,7 @@
           "response": []
         },
         {
-          "name": "HU-06: Envío Atómico de Mensaje en Canal de Chat (Sin Auth)",
+          "name": "11. [HU-06] Envío Atómico de Mensaje en Canal de Chat",
           "event": [
             {
               "listen": "test",
@@ -394,7 +683,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hola, ya verifiqué mi respuesta, ¿dónde nos vemos?\"\n}",
+              "raw": "{\n  \"content\": \"Hola, ya verifiqué mi respuesta, ¿dónde nos vemos para la entrega?\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -421,12 +710,12 @@
                 }
               ]
             },
-            "description": "### HU-06 Escenario 2: Mensajería Atómica en Chat\nEnvía un mensaje de coordinación para pactar el encuentro en el Punto Seguro del campus. Bajo 'Sin Auth', el remitente se autoasigna al interlocutor correspondiente de forma inteligente."
+            "description": "### HU-06 Escenario 2: Mensajería Atómica en Chat\nEnvía un mensaje de coordinación para pactar el encuentro en el Punto Seguro del campus (ej. Cafetería Edificio A o Bienestar)."
           },
           "response": []
         },
         {
-          "name": "HU-07: Confirmación de Entrega en Punto Seguro (Status Returned)",
+          "name": "12. [HU-07] Confirmación de Entrega en Punto Seguro (Status Returned)",
           "event": [
             {
               "listen": "test",
@@ -465,7 +754,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/items/UAC-8841/status",
+              "raw": "{{baseUrl}}/api/v1/items/{{itemCode}}/status",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -473,7 +762,7 @@
                 "api",
                 "v1",
                 "items",
-                "UAC-8841",
+                "{{itemCode}}",
                 "status"
               ]
             },
@@ -482,7 +771,7 @@
           "response": []
         },
         {
-          "name": "HU-07: Calificación Solidaria y Adjudicación de +100 Puntos de Honor",
+          "name": "13. [HU-07] Calificación Solidaria y Adjudicación de +100 Puntos de Honor",
           "event": [
             {
               "listen": "test",
@@ -527,7 +816,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/users/670c1f1e1c9d440000a10001/rate",
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/rate",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -535,7 +824,7 @@
                 "api",
                 "v1",
                 "users",
-                "670c1f1e1c9d440000a10001",
+                "{{userId}}",
                 "rate"
               ]
             },

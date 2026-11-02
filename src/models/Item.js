@@ -60,6 +60,30 @@ const itemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {}
     },
+    custodyType: {
+      type: String,
+      enum: ['PORTERIA', 'PERSONAL', null],
+      default: null
+    },
+    distinguishingMarks: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    brandAndColor: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    photoUrl: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    images: {
+      type: [String],
+      default: []
+    },
     tags: {
       type: [String],
       default: []
@@ -82,6 +106,50 @@ const itemSchema = new mongoose.Schema(
         type: String,
         trim: true,
         default: ''
+      }
+    },
+    claimRecord: {
+      claimantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+      },
+      ownershipProofText: {
+        type: String,
+        default: ''
+      },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      deliveryToken: {
+        type: String,
+        default: ''
+      },
+      claimedAt: {
+        type: Date,
+        default: null
+      }
+    },
+    findingNotification: {
+      notifiedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+      },
+      action: {
+        type: String,
+        enum: ['LEFT_AT_PORTERIA', 'HAVE_IT_WITH_ME', null],
+        default: null
+      },
+      finderNote: {
+        type: String,
+        default: ''
+      },
+      notifiedAt: {
+        type: Date,
+        default: null
       }
     },
     returnedTo: {
@@ -107,6 +175,7 @@ itemSchema.index(
 
 // Índices adicionales para acelerar filtros comunes
 itemSchema.index({ code: 1 });
+itemSchema.index({ custodyType: 1 });
 itemSchema.index({ type: 1, status: 1 });
 itemSchema.index({ 'location.building': 1 });
 itemSchema.index({ category: 1 });

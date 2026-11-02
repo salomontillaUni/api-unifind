@@ -29,6 +29,7 @@ const seedData = async () => {
     const ITEM_CUADERNO_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000b10003');
     const ITEM_TERMO_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000b10004');
     const ITEM_CHAQUETA_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000b10005');
+    const ITEM_AUDIFONOS_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000b10006');
 
     const CHAT_DEMO_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000c10001');
     const MSG_DEMO_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000d10001');
@@ -77,7 +78,7 @@ const seedData = async () => {
 
     const [carlos, valentina, andres] = users;
 
-    console.log('[Seed] Insertando reportes de objetos exactos para el MVP móvil (HU-01 a HU-05)...');
+    console.log('[Seed] Insertando reportes sincronizados con los flujos móviles de Portería y Dueño...');
     const items = await Item.insertMany([
       {
         _id: ITEM_CASIO_ID,
@@ -86,6 +87,10 @@ const seedData = async () => {
         type: 'found',
         status: 'active',
         category: 'electronics',
+        custodyType: 'PERSONAL',
+        brandAndColor: 'Casio Gris Oscuro',
+        photoUrl: 'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?w=500',
+        images: ['https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?w=500'],
         description: 'Calculadora científica gris con tapa protectora encontrada en el Laboratorio 201 después de clase.',
         location: {
           campus: 'Sede Principal',
@@ -106,13 +111,74 @@ const seedData = async () => {
         }
       },
       {
+        _id: ITEM_TERMO_ID,
+        code: 'UAC-4091',
+        title: 'Termo metálico azul tipo Stanley',
+        type: 'found',
+        status: 'active',
+        category: 'clothing',
+        custodyType: 'PORTERIA',
+        brandAndColor: 'Stanley Azul Mate',
+        photoUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500',
+        images: ['https://images.unsplash.com/photo-1544816155-12df9643f363?w=500'],
+        description: 'Encontrado en Cafetería piso 1 bajo custodia PORTERIA.',
+        location: {
+          campus: 'Sede Principal',
+          building: 'Edificio B',
+          specificArea: 'Cafetería piso 1'
+        },
+        attributes: {
+          capacidad: '750ml',
+          color: 'Azul mate'
+        },
+        tags: ['termo', 'stanley', 'cafeteria', 'porteria'],
+        privacy: {
+          isAnonymous: false,
+          postedBy: carlos._id,
+          claimQuestion: '¿Qué sticker tiene pegado en la parte inferior?',
+          claimAnswer: 'React Developer'
+        }
+      },
+      {
+        _id: ITEM_AUDIFONOS_ID,
+        code: 'UAC-9933',
+        title: 'Auriculares Inalámbricos Sony WH-1000XM4',
+        type: 'found',
+        status: 'active',
+        category: 'electronics',
+        custodyType: 'PORTERIA',
+        brandAndColor: 'Sony Negro Mate',
+        photoUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+        images: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'],
+        description: 'Encontrado en Biblioteca piso 2 bajo custodia PORTERIA.',
+        location: {
+          campus: 'Sede Principal',
+          building: 'Biblioteca',
+          specificArea: 'Sala de estudio piso 2'
+        },
+        attributes: {
+          marca: 'Sony',
+          modelo: 'WH-1000XM4'
+        },
+        tags: ['audifonos', 'sony', 'porteria', 'biblioteca'],
+        privacy: {
+          isAnonymous: false,
+          postedBy: andres._id
+        }
+      },
+      {
         _id: ITEM_CARNET_ID,
         code: 'UAC-2045',
         title: 'Carnet Estudiantil y Tarjeta Bancaria',
         type: 'lost',
         status: 'active',
         category: 'documents',
-        description: 'Billetera pequeña con carnet institucional de Uniautónoma y tarjeta débito Bancolombia.',
+        custodyType: null,
+        distinguishingMarks: 'Billetera con sticker de Ingeniería y firma institucional en el carnet',
+        brandAndColor: 'Billetera cuero negro',
+        photoUrl: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=500',
+        images: ['https://images.unsplash.com/photo-1627123424574-724758594e93?w=500'],
+        description: 'Extraviado con señas: Billetera con sticker de Ingeniería y firma institucional en el carnet',
         location: {
           campus: 'Sede Principal',
           building: 'Cafetería Central',
@@ -125,9 +191,7 @@ const seedData = async () => {
         tags: ['carnet', 'documentos', 'billetera', 'cafeteria'],
         privacy: {
           isAnonymous: false,
-          postedBy: valentina._id,
-          claimQuestion: '¿Cuál es el nombre completo y código del titular en el carnet?',
-          claimAnswer: 'Valentina Gómez Restrepo 2022-2045'
+          postedBy: valentina._id
         }
       },
       {
@@ -137,7 +201,12 @@ const seedData = async () => {
         type: 'lost',
         status: 'active',
         category: 'documents',
-        description: 'Cuaderno cuadriculado de 100 hojas con notas de las tres primeras semanas de clase.',
+        custodyType: null,
+        distinguishingMarks: 'Sticker de Tux Linux en la portada y apuntes con tinta morada',
+        brandAndColor: 'Cuaderno Norma Azul 100 hojas',
+        photoUrl: '',
+        images: [],
+        description: 'Extraviado con señas: Sticker de Tux Linux en la portada y apuntes con tinta morada',
         location: {
           campus: 'Sede Principal',
           building: 'Biblioteca',
@@ -154,38 +223,18 @@ const seedData = async () => {
         }
       },
       {
-        _id: ITEM_TERMO_ID,
-        code: 'UAC-4091',
-        title: 'Termo metálico azul tipo Stanley',
-        type: 'found',
-        status: 'active',
-        category: 'clothing',
-        description: 'Termo térmico azul mate con sticker de desarrollo web hallado en mesa de cafetería.',
-        location: {
-          campus: 'Sede Principal',
-          building: 'Edificio B',
-          specificArea: 'Cafetería piso 1'
-        },
-        attributes: {
-          capacidad: '750ml',
-          color: 'Azul mate'
-        },
-        tags: ['termo', 'stanley', 'cafeteria'],
-        privacy: {
-          isAnonymous: false,
-          postedBy: carlos._id,
-          claimQuestion: '¿Qué sticker tiene pegado en la parte inferior?',
-          claimAnswer: 'React Developer'
-        }
-      },
-      {
         _id: ITEM_CHAQUETA_ID,
         code: 'UAC-5512',
         title: 'Chaqueta impermeable negra con capota',
         type: 'lost',
         status: 'active',
         category: 'clothing',
-        description: 'Chaqueta deportiva negra talla M olvidada en el perchero del pasillo del Edificio B.',
+        custodyType: null,
+        distinguishingMarks: 'Cremallera roja y pequeño parche reflectivo en manga izquierda',
+        brandAndColor: 'Adidas Negra Talla M',
+        photoUrl: '',
+        images: [],
+        description: 'Extraviado con señas: Cremallera roja y pequeño parche reflectivo en manga izquierda',
         location: {
           campus: 'Sede Principal',
           building: 'Edificio B',
@@ -232,17 +281,20 @@ const seedData = async () => {
     });
 
     console.log('====================================================');
-    console.log('✅ Base de datos poblada exitosamente para MVP Móvil:');
+    console.log('✅ Base de datos poblada exitosamente para MVP Móvil y Portería:');
     console.log(`- Usuarios creados: ${users.length}`);
     console.log(`- Reportes de objetos: ${items.length}`);
     console.log(`- Chats inicializados: 1`);
     console.log('----------------------------------------------------');
-    console.log('IDs y Códigos de referencia para emulador Android / Postman:');
-    console.log(`- Carlos Muñoz (200 pts):     ${carlos._id}`);
-    console.log(`- Valentina Gómez (100 pts):   ${valentina._id}`);
-    console.log(`- Andrés Salazar (150 pts):    ${andres._id}`);
-    console.log(`- Calculadora Casio fx-570ES:  ${calculadoraItem._id} (Código: UAC-8841)`);
-    console.log(`- Chat de demostración:        ${demoChat._id}`);
+    console.log('IDs y Códigos de referencia:');
+    console.log(`- Carlos Muñoz (Custodio Personal): ${carlos._id}`);
+    console.log(`- Valentina Gómez (Reclamante):     ${valentina._id}`);
+    console.log(`- Andrés Salazar:                  ${andres._id}`);
+    console.log(`- Calculadora Casio (PERSONAL):     ${calculadoraItem._id} (Código: UAC-8841)`);
+    console.log(`- Termo Stanley (PORTERIA):         ${ITEM_TERMO_ID} (Código: UAC-4091)`);
+    console.log(`- Audífonos Sony (PORTERIA):        ${ITEM_AUDIFONOS_ID} (Código: UAC-9933)`);
+    console.log(`- Carnet Estudiantil (LOST):        ${ITEM_CARNET_ID} (Código: UAC-2045)`);
+    console.log(`- Chat de demostración:             ${demoChat._id}`);
     console.log('====================================================');
 
     await mongoose.disconnect();

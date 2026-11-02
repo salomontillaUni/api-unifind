@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const User = require('../models/User');
+const Chat = require('../models/Chat');
 
 // IDs comunitarios por defecto para soporte 'Sin Auth'
 const DEFAULT_COMMUNITY_USER_ID = '670c1f1e1c9d440000a10001'; // Carlos Andrés Muñoz (Hallador)
@@ -31,10 +32,21 @@ const calculateTimeAgo = (date) => {
 };
 
 /**
+ * Normalizador de cadenas para comparación insensible a mayúsculas, espacios y acentos
+ */
+const normalizeText = (text) =>
+  (text || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+/**
  * Función auxiliar para sanitizar y enriquecer un objeto Item para consumo móvil y web
  * Si isAnonymous es true, enmascara los datos de postedBy.
  * Oculta siempre claimAnswer para no exponer la respuesta secreta (HU-04).
- * Enriquece con campos planos (id, code, campusLocation, roomReference, timeAgo, etc.)
+ * Enriquece con campos DTO móviles (id, code, campusLocation, roomReference, custodyType, etc.)
  */
 const sanitizeItem = (itemDoc) => {
   const item = itemDoc.toObject ? itemDoc.toObject() : { ...itemDoc };
@@ -64,6 +76,8 @@ const sanitizeItem = (itemDoc) => {
   const campusLocation = building ? `${campus} · ${building}` : campus;
   const roomReference = specificArea || building || 'Campus Uniautónoma';
 
+  const photo = item.photoUrl || (Array.isArray(item.images) && item.images[0]) || '';
+
   return {
     ...item,
     id: rawId,
@@ -73,7 +87,14 @@ const sanitizeItem = (itemDoc) => {
     timeAgo: calculateTimeAgo(item.createdAt),
     securityQuestion: item.privacy?.claimQuestion || '',
     requiresVerification: Boolean(item.privacy?.claimQuestion),
-    rewardPoints: 100
+    rewardPoints: 100,
+    custodyType: item.custodyType || null,
+    distinguishingMarks: item.distinguishingMarks || '',
+    brandAndColor: item.brandAndColor || '',
+    photoUrl: photo,
+    images: Array.isArray(item.images) ? item.images : (photo ? [photo] : []),
+    claimRecord: item.claimRecord || null,
+    findingNotification: item.findingNotification || null
   };
 };
 
@@ -100,7 +121,7 @@ const mapCategoryQuery = (cat) => {
 };
 
 /**
- * @desc    Crear un nuevo reporte de objeto (perdido o encontrado) - HU-03 & HU-04
+ * @desc    Crear un nuevo reporte bifurcado: Flujo A (FOUND - Exprés Portería) vs Flujo B (LOST - Detallado Dueño)
  * @route   POST /api/v1/items
  * @access  Public (Sin Auth)
  */
@@ -112,11 +133,21 @@ const createItem = async (req, res, next) => {
       situation,
       category,
       description,
+      custodyType,
+      custody,
+      campusZone,
       location,
       campusLocation,
       roomReference,
+      locationReference,
       building,
       campus,
+      photoUrl,
+      images,
+      brand,
+      model,
+      brandAndColor,
+      distinguishingMarks,
       attributes,
       tags,
       privacy,
@@ -138,16 +169,23 @@ const createItem = async (req, res, next) => {
       });
     }
 
-    // Resolver tipo (lost o found), aceptando variantes de situación del wizard móvil
-    let resolvedType = type || situation || 'found';
-    if (resolvedType === 'perdi' || resolvedType === 'perdido') resolvedType = 'lost';
-    if (resolvedType === 'encontre' || resolvedType === 'encontrado') resolvedType = 'found';
-    if (!['lost', 'found'].includes(resolvedType)) resolvedType = 'found';
+    if (!category || !category.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'La categoría del objeto es obligatoria'
+      });
+    }
 
-    // Resolver ubicación: soporte para objeto anidado o campos planos del móvil
-    let resolvedCampus = 'Sede Principal';
-    let resolvedBuilding = building || 'Edificio Principal';
-    let resolvedArea = roomReference || '';
+    // Resolver tipo (lost o found), aceptando mayúsculas y variantes del asistente móvil
+    const rawType = (type || situation || 'found').toString().trim().toLowerCase();
+    const isLost = rawType === 'lost' || rawType === 'perdi' || rawType === 'perdido';
+    const resolvedType = isLost ? 'lost' : 'found';
+
+    // Resolver zona de campus / edificio
+    let resolvedBuilding = campusZone || building || 'Edificio Principal';
+    let resolvedArea = locationReference || roomReference || '';
+    let resolvedCampus = campus || 'Sede Principal';
 
     if (location && typeof location === 'object') {
       resolvedCampus = location.campus ? location.campus.trim() : resolvedCampus;
@@ -163,19 +201,16 @@ const createItem = async (req, res, next) => {
       }
     }
 
-    if (campus) resolvedCampus = campus.trim();
+    // Resolver fotos
+    const resolvedPhoto = photoUrl || (Array.isArray(images) && images[0]) || '';
+    const resolvedImages = Array.isArray(images) && images.length > 0 ? images : (resolvedPhoto ? [resolvedPhoto] : []);
 
     // Soporte 'Sin Auth': Auto-asignar usuario comunitario si no se especifica
-    const resolvedPostedBy =
-      privacy?.postedBy ||
-      postedBy ||
-      DEFAULT_COMMUNITY_USER_ID;
+    const resolvedPostedBy = privacy?.postedBy || postedBy || DEFAULT_COMMUNITY_USER_ID;
 
-    // Verificar si el usuario existe (si no, no bloquear en entorno de pruebas)
     if (mongoose.Types.ObjectId.isValid(resolvedPostedBy)) {
       const userExists = await User.findById(resolvedPostedBy);
       if (!userExists) {
-        // En caso de que no exista aún en BD, asegurar uno básico
         await User.create({
           _id: resolvedPostedBy,
           fullName: 'Carlos Andrés Muñoz',
@@ -186,37 +221,72 @@ const createItem = async (req, res, next) => {
       }
     }
 
-    // Mapeo amigable de preguntas de seguridad (HU-04)
-    const finalQuestion = (securityQuestion || claimQuestion || privacy?.claimQuestion || '').trim();
-    const finalAnswer = (securityAnswerExpected || claimAnswer || securityAnswer || privacy?.claimAnswer || '').trim();
-    const isAnon = Boolean(
-      isAnonymous !== undefined ? isAnonymous : privacy?.isAnonymous
-    );
-
     // Generar automáticamente código único si no se envía
     let resolvedCode = code ? code.trim().toUpperCase() : null;
     if (!resolvedCode) {
       resolvedCode = `UAC-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
+    let finalCustodyType = null;
+    let finalDistinguishingMarks = '';
+    let finalBrandAndColor = '';
+    let finalDescription = '';
+    let finalClaimQuestion = '';
+    let finalClaimAnswer = '';
+    let finalIsAnonymous = false;
+
+    // --- BIFURCACIÓN DE FLUJOS ---
+    if (resolvedType === 'found') {
+      // FLUJO A: MODO EXPRÉS PORTERÍA / HALLADOR
+      const rawCustody = (custodyType || custody || 'PORTERIA').toString().toUpperCase().trim();
+      finalCustodyType = rawCustody === 'PERSONAL' ? 'PERSONAL' : 'PORTERIA';
+
+      finalBrandAndColor = brandAndColor || (brand ? `${brand} ${model || ''}`.trim() : '');
+      finalDescription = description ? description.trim() : `Encontrado en ${resolvedBuilding} bajo custodia ${finalCustodyType}`;
+
+      finalClaimQuestion = (securityQuestion || claimQuestion || privacy?.claimQuestion || '').trim();
+      finalClaimAnswer = (securityAnswerExpected || claimAnswer || securityAnswer || privacy?.claimAnswer || '').trim();
+      finalIsAnonymous = Boolean(isAnonymous !== undefined ? isAnonymous : privacy?.isAnonymous);
+    } else {
+      // FLUJO B: MODO DETALLADO DUEÑO (OBJETO EXTRAVIADO)
+      finalCustodyType = null; // El dueño no se custodia a sí mismo
+      finalDistinguishingMarks = (distinguishingMarks || description || '').trim();
+      finalBrandAndColor = (brandAndColor || (brand ? `${brand} ${model || ''}`.trim() : '')).trim();
+      finalDescription = description ? description.trim() : (finalDistinguishingMarks ? `Extraviado con señas: ${finalDistinguishingMarks}` : title.trim());
+
+      // El dueño no formula preguntas secretas de custodia
+      finalClaimQuestion = '';
+      finalClaimAnswer = '';
+      finalIsAnonymous = false;
+    }
+
     const newItem = await Item.create({
       code: resolvedCode,
       title: title.trim(),
       type: resolvedType,
-      category: category ? category.trim() : 'general',
-      description: description ? description.trim() : title.trim(),
+      category: category.trim(),
+      description: finalDescription,
+      custodyType: finalCustodyType,
+      distinguishingMarks: finalDistinguishingMarks,
+      brandAndColor: finalBrandAndColor,
+      photoUrl: resolvedPhoto,
+      images: resolvedImages,
       location: {
         campus: resolvedCampus,
         building: resolvedBuilding,
         specificArea: resolvedArea
       },
-      attributes: attributes || {},
+      attributes: {
+        brand: brand || '',
+        model: model || '',
+        ...attributes
+      },
       tags: Array.isArray(tags) ? tags.map((t) => t.trim()) : [],
       privacy: {
-        isAnonymous: isAnon,
+        isAnonymous: finalIsAnonymous,
         postedBy: resolvedPostedBy,
-        claimQuestion: finalQuestion,
-        claimAnswer: finalAnswer
+        claimQuestion: finalClaimQuestion,
+        claimAnswer: finalClaimAnswer
       },
       status: 'active'
     });
@@ -229,7 +299,7 @@ const createItem = async (req, res, next) => {
     return res.status(201).json({
       success: true,
       statusCode: 201,
-      message: 'Reporte de objeto registrado exitosamente en la comunidad Uniautónoma',
+      message: `Reporte de objeto (${resolvedType.toUpperCase()}) registrado exitosamente`,
       data: sanitizeItem(populatedItem)
     });
   } catch (error) {
@@ -238,18 +308,28 @@ const createItem = async (req, res, next) => {
 };
 
 /**
- * @desc    Listar objetos con filtros multicriterio, búsqueda por texto y paginación - HU-01 & HU-02
+ * @desc    Listar objetos con filtros multicriterio (tipo, custodia, categoría, búsqueda) - HU-01 & HU-02
  * @route   GET /api/v1/items
  * @access  Public (Sin Auth)
  */
 const getItems = async (req, res, next) => {
   try {
-    const { type, category, building, status, search, page = 1, limit = 20 } = req.query;
+    const { type, category, building, custodyType, porteria, status, search, page = 1, limit = 20 } = req.query;
 
     const query = {};
 
     if (type) {
-      query.type = type;
+      const lowerType = type.toString().toLowerCase().trim();
+      if (['lost', 'found'].includes(lowerType)) {
+        query.type = lowerType;
+      }
+    }
+
+    // Filtro por tipo de custodia (PORTERIA / PERSONAL)
+    if (custodyType) {
+      query.custodyType = custodyType.toString().toUpperCase().trim();
+    } else if (porteria === 'true') {
+      query.custodyType = 'PORTERIA';
     }
 
     if (category) {
@@ -263,14 +343,12 @@ const getItems = async (req, res, next) => {
       query['location.building'] = { $regex: new RegExp(building.trim(), 'i') };
     }
 
-    // Filtro por status (si se envía 'all', muestra todos; de lo contrario aplica filtro)
     if (status && status !== 'all') {
       query.status = status;
     }
 
     let sortOptions = { createdAt: -1 };
 
-    // Si se especifica término de búsqueda
     if (search && search.trim()) {
       const term = search.trim();
       const cleanTerm = term.replace(/^#/, '');
@@ -367,14 +445,13 @@ const getItemById = async (req, res, next) => {
 const verifyClaim = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { claimantId } = req.body;
-    const answer = req.body.answer || req.body.claimAnswer || req.body.securityAnswer;
+    const { answer, claimantId } = req.body;
 
     if (!answer || typeof answer !== 'string' || !answer.trim()) {
       return res.status(400).json({
         success: false,
         statusCode: 400,
-        error: 'El campo answer o claimAnswer con la respuesta de comprobación es obligatorio'
+        error: 'El campo answer con la respuesta de comprobación es obligatorio'
       });
     }
 
@@ -407,15 +484,6 @@ const verifyClaim = async (req, res, next) => {
       });
     }
 
-    // Normalizador de cadenas para comparación insensible a mayúsculas, espacios y acentos
-    const normalizeText = (text) =>
-      (text || '')
-        .toString()
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-
     const expectedAnswer = item.privacy.claimAnswer || item.privacy.claimQuestion;
     const normalizedInput = normalizeText(answer);
     const normalizedExpected = normalizeText(expectedAnswer);
@@ -434,17 +502,299 @@ const verifyClaim = async (req, res, next) => {
       });
     }
 
-    // Soporte 'Sin Auth': Reclamante por defecto (Valentina Gómez)
     const resolvedClaimantId = claimantId || DEFAULT_CLAIMANT_USER_ID;
 
     return res.status(200).json({
       success: true,
       statusCode: 200,
       claimVerified: true,
-      message: 'Respuesta correcta. Propiedad verificada satisfactoriamente. Ahora puede iniciar el chat de entrega segura.',
+      message: 'Respuesta correcta. Propiedad verificada satisfactoriamente.',
       itemId: item._id,
       itemCode: item.code || `#UAC-${item._id.toString().slice(-4).toUpperCase()}`,
       claimantId: resolvedClaimantId
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Reclamar un objeto encontrado (Flujo A: FOUND)
+ *          - Si custodyType === 'PORTERIA': Genera deliveryToken físico de retiro.
+ *          - Si custodyType === 'PERSONAL': Vincula o abre canal de chat con el custodio.
+ * @route   POST /api/v1/items/:id/claim
+ * @access  Public (Sin Auth)
+ */
+const claimItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { ownershipProofText, claimantId, securityAnswer, answer } = req.body;
+
+    const cleanCode = id.replace(/^#/, '').toUpperCase();
+    let item = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      item = await Item.findById(id);
+    }
+    if (!item) {
+      item = await Item.findOne({
+        $or: [{ code: cleanCode }, { code: `#${cleanCode}` }, { code: id }]
+      });
+    }
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún reporte con el ID o código: ${id}`
+      });
+    }
+
+    if (item.type !== 'found') {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El endpoint /claim es exclusivo para objetos de tipo encontrado (found)'
+      });
+    }
+
+    if (!ownershipProofText || !ownershipProofText.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El texto de comprobación de propiedad (ownershipProofText) es obligatorio'
+      });
+    }
+
+    // Si tiene pregunta de seguridad y se envía respuesta, validar coincidencia
+    if (item.privacy?.claimQuestion && (securityAnswer || answer)) {
+      const provided = securityAnswer || answer;
+      const expected = item.privacy.claimAnswer || item.privacy.claimQuestion;
+      const normalizedProvided = normalizeText(provided);
+      const normalizedExpected = normalizeText(expected);
+
+      const matches =
+        normalizedProvided === normalizedExpected ||
+        normalizedProvided.includes(normalizedExpected) ||
+        normalizedExpected.includes(normalizedProvided);
+
+      if (!matches) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          claimApproved: false,
+          error: 'La respuesta de seguridad no coincide con los detalles del custodio'
+        });
+      }
+    }
+
+    const resolvedClaimant = claimantId || DEFAULT_CLAIMANT_USER_ID;
+
+    // Asegurar existencia del reclamante
+    if (mongoose.Types.ObjectId.isValid(resolvedClaimant)) {
+      const userExists = await User.findById(resolvedClaimant);
+      if (!userExists) {
+        await User.create({
+          _id: resolvedClaimant,
+          fullName: 'Valentina Gómez Restrepo',
+          institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
+          studentCode: '2022-2045'
+        }).catch(() => {});
+      }
+    }
+
+    item.status = 'in_process';
+
+    // CASO 1: OBJETO EN CUSTODIA PORTERÍA
+    if (item.custodyType === 'PORTERIA' || !item.custodyType) {
+      const deliveryToken = `TICKET-${Math.floor(1000 + Math.random() * 9000)}-RET`;
+
+      item.claimRecord = {
+        claimantId: resolvedClaimant,
+        ownershipProofText: ownershipProofText.trim(),
+        status: 'approved',
+        deliveryToken,
+        claimedAt: new Date()
+      };
+
+      await item.save();
+
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        claimApproved: true,
+        custodyType: 'PORTERIA',
+        deliveryToken,
+        pickupLocation: 'Portería Principal - Campus Uniautónoma',
+        message: 'Reclamo aprobado exitosamente. Presenta este token en la Portería Principal para retirar el objeto.',
+        data: sanitizeItem(item)
+      });
+    }
+
+    // CASO 2: OBJETO EN CUSTODIA PERSONAL
+    const posterId = (item.privacy?.postedBy || DEFAULT_COMMUNITY_USER_ID).toString();
+
+    item.claimRecord = {
+      claimantId: resolvedClaimant,
+      ownershipProofText: ownershipProofText.trim(),
+      status: 'approved',
+      deliveryToken: '',
+      claimedAt: new Date()
+    };
+
+    await item.save();
+
+    // Crear o recuperar chat privado con el custodio
+    let chat = await Chat.findOne({
+      itemId: item._id,
+      participants: { $all: [posterId, resolvedClaimant] }
+    });
+
+    if (!chat) {
+      chat = await Chat.create({
+        itemId: item._id,
+        participants: [posterId, resolvedClaimant],
+        status: 'open',
+        unreadCount: {
+          [posterId]: 0,
+          [resolvedClaimant]: 0
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      claimApproved: true,
+      custodyType: 'PERSONAL',
+      chatId: chat._id,
+      message: 'Reclamo aprobado. Se ha habilitado el canal de chat seguro con la persona que custodia el objeto.',
+      data: sanitizeItem(item),
+      chat
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Notificar el hallazgo de un objeto extraviado (Flujo B: LOST)
+ *          - LEFT_AT_PORTERIA: Lo deja en portería y pasa a custodia PORTERIA.
+ *          - HAVE_IT_WITH_ME: Lo tiene consigo, custodia PERSONAL y abre chat con el dueño.
+ * @route   POST /api/v1/items/:id/notify-found
+ * @access  Public (Sin Auth)
+ */
+const notifyFoundItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action, finderNote, finderId } = req.body;
+
+    const allowedActions = ['LEFT_AT_PORTERIA', 'HAVE_IT_WITH_ME'];
+    if (!action || !allowedActions.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: `La acción es obligatoria y debe ser una de: ${allowedActions.join(', ')}`
+      });
+    }
+
+    const cleanCode = id.replace(/^#/, '').toUpperCase();
+    let item = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      item = await Item.findById(id);
+    }
+    if (!item) {
+      item = await Item.findOne({
+        $or: [{ code: cleanCode }, { code: `#${cleanCode}` }, { code: id }]
+      });
+    }
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún reporte con el ID o código: ${id}`
+      });
+    }
+
+    if (item.type !== 'lost') {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El endpoint /notify-found es exclusivo para objetos reportados como extraviados (lost)'
+      });
+    }
+
+    const resolvedFinder = finderId || DEFAULT_COMMUNITY_USER_ID;
+
+    // Asegurar existencia del hallador
+    if (mongoose.Types.ObjectId.isValid(resolvedFinder)) {
+      const finderExists = await User.findById(resolvedFinder);
+      if (!finderExists) {
+        await User.create({
+          _id: resolvedFinder,
+          fullName: 'Carlos Andrés Muñoz',
+          institutionalEmail: 'carlos.munoz@uniautonoma.edu.co',
+          studentCode: '2023-1001'
+        }).catch(() => {});
+      }
+    }
+
+    item.status = 'in_process';
+    item.findingNotification = {
+      notifiedBy: resolvedFinder,
+      action,
+      finderNote: (finderNote || '').trim(),
+      notifiedAt: new Date()
+    };
+
+    if (action === 'LEFT_AT_PORTERIA') {
+      item.custodyType = 'PORTERIA';
+      await item.save();
+
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        action: 'LEFT_AT_PORTERIA',
+        custodyType: 'PORTERIA',
+        message: 'Notificación registrada con éxito. El objeto ha quedado registrado bajo custodia de Portería.',
+        data: sanitizeItem(item)
+      });
+    }
+
+    // action === 'HAVE_IT_WITH_ME'
+    item.custodyType = 'PERSONAL';
+    await item.save();
+
+    const ownerId = (item.privacy?.postedBy || DEFAULT_CLAIMANT_USER_ID).toString();
+
+    let chat = await Chat.findOne({
+      itemId: item._id,
+      participants: { $all: [resolvedFinder, ownerId] }
+    });
+
+    if (!chat) {
+      chat = await Chat.create({
+        itemId: item._id,
+        participants: [resolvedFinder, ownerId],
+        status: 'open',
+        unreadCount: {
+          [resolvedFinder]: 0,
+          [ownerId]: 0
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      action: 'HAVE_IT_WITH_ME',
+      custodyType: 'PERSONAL',
+      chatId: chat._id,
+      message: 'Notificación registrada. Se ha habilitado el chat directo entre el hallador y el dueño del objeto.',
+      data: sanitizeItem(item),
+      chat
     });
   } catch (error) {
     next(error);
@@ -492,7 +842,6 @@ const updateItemStatus = async (req, res, next) => {
     }
 
     if (status === 'returned') {
-      // Soporte 'Sin Auth': Auto-asignar reclamante si no viene en body
       const resolvedReceiver = returnedTo || DEFAULT_CLAIMANT_USER_ID;
 
       if (mongoose.Types.ObjectId.isValid(resolvedReceiver)) {
@@ -533,6 +882,8 @@ module.exports = {
   getItems,
   getItemById,
   verifyClaim,
+  claimItem,
+  notifyFoundItem,
   updateItemStatus,
   sanitizeItem,
   calculateTimeAgo,

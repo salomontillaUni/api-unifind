@@ -1,163 +1,271 @@
-# Especificación de Historias de Usuario — MVP Unifind (Sin Auth)
+# Especificación de Historias de Usuario — MVP UniFind Móvil
 
-**Proyecto:** Unifind (Red de Contacto y Objetos Perdidos)  
-**Materia:** Desarrollo Móvil — Semestre 6  
+**Proyecto:** UniFind (Red de Contacto, Custodia en Portería y Objetos Perdidos)  
 **Institución:** Corporación Universitaria Autónoma del Cauca (Popayán)  
-**Alcance:** Producto Mínimo Viable (MVP) Funcional  
-**Premisa del MVP:** La aplicación prescinde temporalmente del flujo de autenticación/login; el usuario ingresa de forma directa al Feed principal como miembro de la comunidad universitaria.
+**Asignatura:** Desarrollo Móvil / Bases de Datos Avanzadas — Semestre 6  
+**Alcance:** Producto Mínimo Viable (MVP) Funcional Sincronizado con la App Android  
+**Premisas de Arquitectura:**
+1. **Flujo A (Modo Exprés Portería - FOUND):** Publicación rápida para halladores que depositan objetos en las porterías del campus o los custodian personalmente, con reclamo formal mediante token de retiro o mediación por chat.
+2. **Flujo B (Modo Detallado Dueño - LOST):** Publicación descriptiva de pertenencias extraviadas con señas particulares, facilitando que un tercero notifique su hallazgo dejándolo en portería o contactando al dueño.
+3. **Flujo C (Servicios Transversales y Gamificación):** Login institucional transparente (`@uniautonoma.edu.co`), filtro de custodia en portería en el feed, chat seguro con Punto Seguro Kime, y asignación de +100 Puntos de Honor y badges de camaradería.
 
 ---
 
 ## 1. Matriz de Historias de Usuario del MVP
 
-| ID | Épica | Historia de Usuario | Prioridad MoSCoW | Vista XML | Controlador Kotlin |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **HU-01** | Exploración | Visualización del catálogo de objetos en campus | **Must Have** | `activity_main.xml` | `MainActivity.kt` |
-| **HU-02** | Búsqueda | Filtrado dinámico por estado (Perdido/Encontrado) y categoría | **Must Have** | `activity_main.xml` | `MainActivity.kt` |
-| **HU-03** | Publicación | Publicación de reporte de objeto (Wizard paso a paso) | **Must Have** | `activity_report.xml` | `ReportActivity.kt` |
-| **HU-04** | Seguridad | Configuración de mecanismo anti-fraude (Filtro El Grifo) | **Must Have** | `activity_report.xml` | `ReportActivity.kt` |
-| **HU-05** | Validación | Validación de pertenencia mediante pregunta de seguridad | **Must Have** | `activity_detail.xml` | `DetailActivity.kt` |
-| **HU-06** | Coordinación| Coordinación de cita en Punto Seguro de Campus | **Should Have** | `activity_chat.xml` | `ChatActivity.kt` |
-| **HU-07** | Gamificación | Confirmación de devolución y adjudicación de Puntos de Honor | **Should Have** | `bottom_sheet_rating.xml` | `RatingBottomSheetDialog.kt` |
+| ID | Épica / Flujo | Historia de Usuario | Prioridad MoSCoW | Vista XML | Controlador Kotlin | Endpoint Principal |
+| :--- | :--- | :--- | :---: | :--- | :--- | :--- |
+| **HU-00** | Identidad | Login institucional y auto-registro transparente | **Must Have** | `activity_login.xml` | `LoginActivity.kt` | `POST /api/v1/auth/login` |
+| **HU-01** | Exploración | Catálogo unificado con visualización de custodia en campus | **Must Have** | `activity_main.xml` | `MainActivity.kt` | `GET /api/v1/items` |
+| **HU-02** | Búsqueda | Filtrado dinámico por estado, portería y categorías | **Must Have** | `activity_main.xml` | `MainActivity.kt` | `GET /api/v1/items?custodyType=PORTERIA` |
+| **HU-03** | Flujo A (Hallazgo) | Publicación rápida en Modo Exprés Portería (`FOUND`) | **Must Have** | `activity_report.xml` | `ReportActivity.kt` | `POST /api/v1/items` (`FOUND`) |
+| **HU-04** | Flujo B (Extravío) | Publicación detallada por el propietario (`LOST`) | **Must Have** | `activity_report.xml` | `ReportActivity.kt` | `POST /api/v1/items` (`LOST`) |
+| **HU-05** | Flujo A (Reclamo) | Reclamo de objeto encontrado y generación de token de retiro | **Must Have** | `activity_detail.xml` | `DetailActivity.kt` | `POST /api/v1/items/:id/claim` |
+| **HU-06** | Flujo B (Aviso) | Notificación de hallazgo y coordinación en Punto Seguro | **Should Have** | `activity_detail.xml`<br>`activity_chat.xml` | `DetailActivity.kt`<br>`ChatActivity.kt` | `POST /api/v1/items/:id/notify-found`<br>`POST /api/v1/chats/:id/messages` |
+| **HU-07** | Gamificación | Cierre de entrega y adjudicación de +100 Puntos de Honor | **Should Have** | `bottom_sheet_rating.xml` | `RatingBottomSheetDialog.kt` | `PATCH /api/v1/items/:id/status`<br>`POST /api/v1/users/:id/rate` |
 
 ---
 
 ## 2. Detalle y Criterios de Aceptación (Formato Gherkin)
 
-### HU-01: Visualización del catálogo de objetos en campus
-* **Como** estudiante de la Uniautónoma del Cauca,  
-* **Quiero** explorar un feed con las pertenencias extraviadas y encontradas en los diferentes bloques del campus,  
-* **Para** saber si alguien encontró un objeto mío o si un elemento que hallé ya fue reportado.
+---
 
-**Criterios de Aceptación:**
-* **Escenario 1 (Listado estructurado):**
-  * **Dado que** ingreso a la pantalla principal (`MainActivity`),
-  * **Cuando** carga la interfaz,
-  * **Entonces** visualizo tarjetas organizadas con imagen/icono, título del objeto, ubicación (ej. *Bloque A · Lab 201*), tiempo de publicación y badge de estado.
-* **Escenario 2 (Diferenciación de badges):**
-  * **Dado que** observo las publicaciones,
-  * **Cuando** una publicación es de tipo *Encontrado*,
-  * **Entonces** la etiqueta es amarilla con botón "Verificar Propiedad"; si es *Perdido*, la etiqueta es azul con botón "Lo he visto".
+### HU-00: Login Institucional y Auto-Registro Transparente
+
+* **Como** estudiante o funcionario de la Uniautónoma del Cauca,  
+* **Quiero** autenticarme en la aplicación ingresando mi correo institucional (`@uniautonoma.edu.co`) y mi código estudiantil,  
+* **Para** acceder a la red de confianza de objetos perdidos sin contraseñas engorrosas y registrar mi perfil automáticamente si es mi primera vez.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Autenticación institucional en UniFind
+  Como miembro de la comunidad universitaria
+  Quiero iniciar sesión con mi correo institucional
+  Para interactuar con la red de objetos perdidos
+
+  Escenario: Inicio de sesión exitoso de usuario existente
+    Dado que ingreso mi correo "carlos.munoz@uniautonoma.edu.co" en "activity_login.xml"
+    Cuando pulso "Ingresar a UniFind"
+    Entonces el sistema valida el dominio "@uniautonoma.edu.co"
+    Y retorna código HTTP 200 OK con mis datos de reputación, código y puntos de honor
+    Y la aplicación navega directamente a "MainActivity.kt"
+
+  Escenario: Auto-registro transparente en primera sesión
+    Dado que ingreso un correo institucional nuevo "nuevo.estudiante@uniautonoma.edu.co"
+    Cuando pulso "Ingresar a UniFind"
+    Entonces el backend crea automáticamente el perfil con 100 Puntos de Honor iniciales
+    Y retorna código HTTP 200 OK autorizando el acceso inmediato
+
+  Escenario: Rechazo de correo no institucional
+    Dado que intento ingresar con un correo comercial "estudiante@gmail.com"
+    Cuando pulso el botón de ingreso
+    Entonces el sistema responde con código HTTP 400 Bad Request
+    Y la app muestra un mensaje indicando que el correo debe ser "@uniautonoma.edu.co"
+```
 
 ---
 
-### HU-02: Filtrado dinámico por estado y categoría
-* **Como** usuario que busca una pertenencia en específico,  
-* **Quiero** alternar entre objetos perdidos/encontrados y filtrar por categorías temáticas o palabras clave,  
-* **Para** encontrar rápidamente el reporte que me interesa sin recorrer todo el catálogo.
+### HU-01: Catálogo Unificado con Visualización de Custodia en Campus
 
-**Criterios de Aceptación:**
-* **Escenario 1 (Toggle de estado):**
-  * **Dado que** estoy en el Feed,
-  * **Cuando** pulso el botón "Perdidos (14)" o "Encontrados (28)",
-  * **Entonces** la lista actualiza los resultados mostrando únicamente las tarjetas del estado seleccionado.
-* **Escenario 2 (Chips de categoría):**
-  * **Dado que** selecciono un chip (ej. *Electrónica*, *Documentos*, *Ropa*),
-  * **Cuando** se aplica el filtro,
-  * **Entonces** se muestran únicamente los objetos clasificados bajo esa categoría institucional.
-* **Escenario 3 (Buscador por texto):**
-  * **Dado que** escribo "calculadora" en el campo de búsqueda,
-  * **Cuando** presiono enter,
-  * **Entonces** la vista muestra las publicaciones cuyo título o descripción coincidan con el término.
+* **Como** usuario de la comunidad universitaria,  
+* **Quiero** explorar un feed estructurado con tarjetas que muestren foto, título, zona del campus, tiempo relativo y distintivo de custodia (`PORTERIA` o `PERSONAL`),  
+* **Para** identificar rápidamente si mi pertenencia ya fue entregada en portería o la tiene un compañero.
 
----
+#### Criterios de Aceptación:
+```gherkin
+Característica: Exploración del feed principal
+  Como estudiante en el campus
+  Quiero visualizar el catálogo de pertenencias
+  Para enterarme de hallazgos y pérdidas en tiempo real
 
-### HU-03: Publicación de reporte de objeto (Wizard)
-* **Como** estudiante que halló o extravió una pertenencia en el campus,  
-* **Quiero** diligenciar un formulario estructurado con datos, atributos y ubicación física,  
-* **Para** registrar el reporte formalmente en la comunidad universitaria.
-
-**Criterios de Aceptación:**
-* **Escenario 1 (Acceso al formulario):**
-  * **Dado que** estoy en el Feed,
-  * **Cuando** toco el botón flotante "+ Reportar Objeto" (`fabReportItem`),
-  * **Entonces** se abre la pantalla `ReportActivity` con la barra de progreso de pasos.
-* **Escenario 2 (Selector de situación):**
-  * **Dado que** inicio el reporte,
-  * **Cuando** elijo "Encontré un Objeto" o "Perdí un Objeto",
-  * **Entonces** el botón activo se resalta y adapta el mensaje informativo de custodia.
-* **Escenario 3 (Validación de campos obligatorios):**
-  * **Dado que** intento publicar sin ingresar el título descriptivo del objeto,
-  * **Cuando** pulso "Publicar en la Comunidad Uniautónoma",
-  * **Entonces** el sistema resalta el error visual impidiendo el avance.
+  Escenario: Visualización estructurada de tarjetas
+    Dado que me encuentro en la pantalla principal ("MainActivity.kt")
+    Cuando carga el listado desde "GET /api/v1/items"
+    Entonces cada tarjeta muestra la fotografía del objeto ("photoUrl"), el título, el código visible (ej. "#UAC-8841"), la ubicación ("Sede Principal · Edificio A"), el tiempo transcurrido (ej. "Hace 2 horas") y el tipo de custodia
+    Y si el objeto está en portería, se resalta la insignia "En Portería" con indicación de entrega oficial
+```
 
 ---
 
-### HU-04: Configuración de mecanismo anti-fraude (Filtro El Grifo)
-* **Como** persona que encontró un objeto de valor,  
-* **Quiero** definir una pregunta de seguridad y registrar su respuesta confidencial,  
-* **Para** prevenir reclamos fraudulentos de personas que no sean los dueños legítimos.
+### HU-02: Filtrado Dinámico por Estado, Portería y Categorías
 
-**Criterios de Aceptación:**
-* **Escenario 1 (Ingreso de pregunta y respuesta confidencial):**
-  * **Dado que** llego al paso 5 del formulario de reporte,
-  * **Cuando** redacto una pregunta clave (ej. *"¿Qué iniciales están grabadas en el reverso?"*) y su respuesta correcta,
-  * **Entonces** el sistema guarda la respuesta de forma privada para contrastar reclamos posteriores.
-* **Escenario 2 (Confidencialidad):**
-  * **Dado que** el reporte se publica en el feed,
-  * **Cuando** cualquier usuario revisa la publicación,
-  * **Entonces** la respuesta secreta jamás es visible públicamente.
+* **Como** estudiante que busca un artículo específico,  
+* **Quiero** alternar entre objetos perdidos y encontrados, aplicar el filtro rápido de portería ("En Portería"), seleccionar chips de categoría o buscar por texto,  
+* **Para** acotar los cientos de registros y encontrar mi pertenencia en segundos.
 
----
+#### Criterios de Aceptación:
+```gherkin
+Característica: Filtrado dinámico y búsqueda
+  Como usuario que busca su pertenencia
+  Quiero aplicar filtros combinados
+  Para localizar el reporte exacto
 
-### HU-05: Validación de pertenencia mediante pregunta de seguridad
-* **Como** dueño que identifica su objeto extraviado en el catálogo,  
-* **Quiero** contestar la pregunta de comprobación desde la pantalla de detalle,  
-* **Para** demostrar mi propiedad legítima y desbloquear el canal seguro de entrega.
+  Escenario: Filtro exclusivo de Portería
+    Dado que me encuentro en el feed principal
+    Cuando activo el chip "En Portería"
+    Entonces la aplicación consume "GET /api/v1/items?custodyType=PORTERIA"
+    Y la lista despliega únicamente los objetos resguardados físicamente en las porterías institucionales
 
-**Criterios de Aceptación:**
-* **Escenario 1 (Consulta de ficha técnica):**
-  * **Dado que** toco una tarjeta de objeto encontrado en el feed,
-  * **Cuando** se abre `DetailActivity`,
-  * **Entonces** veo la fotografía, el código de reporte (ej. *#UAC-8841*), el punto de custodia asignado (*Bienestar Universitario*) y los 6 atributos técnicos.
-* **Escenario 2 (Envío de respuesta satisfactoria):**
-  * **Dado que** leo la pregunta de seguridad formulada por el hallador,
-  * **Cuando** digito mi respuesta y pulso "Verificar Propiedad y Abrir Chat",
-  * **Entonces** se valida la coincidencia y se abre la conversación privada (`ChatActivity`).
-* **Escenario 3 (Campo vacío):**
-  * **Dado que** dejo el campo de verificación en blanco,
-  * **Cuando** pulso el botón,
-  * **Entonces** se muestra una alerta solicitando responder la pregunta.
+  Escenario: Toggle entre Perdidos y Encontrados
+    Dado que estoy explorando publicaciones
+    Cuando toco la pestaña "Perdidos (LOST)"
+    Entonces la lista se refresca con "GET /api/v1/items?type=lost"
+    Y los botones de acción cambian a "Lo he visto / Notificar Hallazgo"
+
+  Escenario: Búsqueda por palabra clave o código
+    Dado que escribo "UAC-8841" o "calculadora" en el buscador
+    Cuando presiono buscar
+    Entonces el backend filtra por código exacto o índice de texto ponderado ("$text")
+    Y muestra únicamente las coincidencias pertinentes
+```
 
 ---
 
-### HU-06: Coordinación de cita en Punto Seguro de Campus
-* **Como** estudiante que va a devolver o recibir una pertenencia,  
-* **Quiero** coordinar los detalles en un chat privado con un Punto Seguro institucional predefinido,  
-* **Para** pactar la entrega física en un lugar vigilado y seguro del campus.
+### HU-03: Flujo A — Publicación Rápida en Modo Exprés Portería (`FOUND`)
 
-**Criterios de Aceptación:**
-* **Escenario 1 (Tarjeta de Punto Seguro Kime):**
-  * **Dado que** ingreso a `ChatActivity`,
-  * **Cuando** reviso la parte superior del chat,
-  * **Entonces** observo la tarjeta con la ubicación institucional acordada (*Cafetería Bloque A / Bienestar*) y el botón "Confirmar Entrega de Objeto".
-* **Escenario 2 (Intercambio de mensajes):**
-  * **Dado que** redacto un mensaje en la barra inferior,
-  * **Cuando** presiono el botón de enviar,
-  * **Entonces** se añade a la conversación con fecha, hora y confirmación de lectura.
+* **Como** estudiante o colaborador que encontró un objeto en el campus,  
+* **Quiero** publicar un reporte exprés en menos de 1 minuto adjuntando una foto, título, categoría, zona del campus y marcando si lo dejé en la portería o lo llevo conmigo,  
+* **Para** desentenderme del objeto dejándolo en manos oficiales o coordinar su entrega sin perder tiempo en formularios complejos.
 
----
+#### Criterios de Aceptación:
+```gherkin
+Característica: Publicación exprés de objeto encontrado
+  Como hallador de una pertenencia
+  Quiero reportarla rápidamente con foto y custodia
+  Para facilitar su restitución inmediata
 
-### HU-07: Confirmación de devolución y adjudicación de Puntos de Honor
-* **Como** usuario que recuperó su objeto con éxito,  
-* **Quiero** calificar al compañero con 5 estrellas, asignarle reconocimientos de camaradería y otorgarle Puntos de Honor,  
-* **Para** incentivar la honestidad estudiantil y cerrar formalmente el reporte.
+  Escenario: Publicación con custodia en Portería
+    Dado que encontré un termo Stanley en la cafetería
+    Cuando diligencio el formulario con foto, categoría "clothing/accessories", zona "Edificio B" y elijo custodia "PORTERIA"
+    Y presiono "Publicar Reporte Exprés"
+    Entonces el sistema envía "POST /api/v1/items" con type="found" y custodyType="PORTERIA"
+    Y el servidor responde 201 Created asignando un código único "#UAC-XXXX"
+    Y el objeto queda visible en el feed con el badge oficial de Portería
 
-**Criterios de Aceptación:**
-* **Escenario 1 (Apertura del modal):**
-  * **Dado que** se realiza la entrega física,
-  * **Cuando** toco "Confirmar Entrega de Objeto" en el chat o entro a la pestaña *Honor*,
-  * **Entonces** se despliega el modal `RatingBottomSheetDialog`.
-* **Escenario 2 (Adjudicación de Puntos de Honor):**
-  * **Dado que** califico con estrellas y selecciono tags (*Puntual*, *Muy Honesto*),
-  * **Cuando** pulso "Finalizar y Cerrar Reporte",
-  * **Entonces** el sistema acredita **+100 Puntos de Honor** al hallador, actualiza el rango solidario y cierra el reporte.
+  Escenario: Publicación con custodia Personal y filtro anti-fraude opcional
+    Dado que hallé una calculadora y decido llevarla conmigo ("custodyType: PERSONAL")
+    Cuando configuro una pregunta secreta ("¿Qué iniciales están grabadas?") y su respuesta confidencial
+    Entonces el servidor almacena la respuesta de forma encriptada/privada
+    Y jamás expone la respuesta en el catálogo público
+```
 
 ---
 
-## 3. Justificación para el Docente
+### HU-04: Flujo B — Publicación Detallada por el Propietario (`LOST`)
 
-1. **¿Por qué este MVP no requiere autenticación en esta etapa?**
-   * El MVP se enfoca en validar el **flujo de valor central** de la aplicación: *reportar hallazgos, protegerlos contra fraudes y coordinar entregas seguras en campus*. La autenticación es un servicio transversal que puede conectarse posteriormente sin alterar la lógica de negocio ni las vistas ya maquetadas.
-2. **Facilidad de Prueba y Calificación:**
-   * Al no exigir login obligatorio en el emulador, el profesor puede evaluar inmediatamente cada una de las funcionalidades y pantallas sin necesidad de registrar cuentas ni crear tokens de sesión.
+* **Como** dueño que extravió una pertenencia valiosa en la universidad,  
+* **Quiero** publicar un reporte descriptivo indicando señas particulares ("distinguishingMarks"), marca, color, zona aproximada donde lo olvidé y foto referencial opcional,  
+* **Para** que la comunidad y el personal de vigilancia puedan reconocerlo fácilmente si lo encuentran.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Publicación de objeto extraviado por su dueño
+  Como propietario de un objeto perdido
+  Quiero ingresar señas particulares
+  Para que quien lo encuentre sepa cómo identificarlo
+
+  Escenario: Registro exitoso de objeto perdido
+    Dado que perdí mi billetera con carnet institucional en la Cafetería Central
+    Cuando diligencio el formulario seleccionando "Perdí un Objeto" (type="lost")
+    E ingreso señas particulares "Billetera de cuero con sticker de Ingeniería y firma en el carnet"
+    Y presiono "Publicar Búsqueda en Campus"
+    Entonces el sistema envía "POST /api/v1/items" con type="lost" y custodyType=null
+    Y el reporte se publica en el feed con el badge azul "Perdido" y botón "Notificar Hallazgo"
+```
+
+---
+
+### HU-05: Flujo A — Reclamo de Objeto Encontrado y Generación de Token de Retiro
+
+* **Como** dueño que reconoce su objeto encontrado en el feed,  
+* **Quiero** enviar mi comprobación de propiedad desde la pantalla de detalle (`DetailActivity.kt`),  
+* **Para** que si el objeto está en portería se me genere un **Token de Retiro físico** (`TICKET-XXXX-RET`), o si está bajo custodia personal se me habilite el chat directo con el custodio.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Reclamo de pertenencias encontradas
+  Como dueño legítimo
+  Quiero reclamar mi objeto
+  Para retirarlo en portería o coordinar con quien lo tiene
+
+  Escenario: Reclamo exitoso de objeto custodiado en Portería
+    Dado que visualizo el detalle de un objeto con "custodyType: PORTERIA"
+    Cuando digito mi prueba de propiedad en "ownershipProofText" y presiono "Reclamar Objeto"
+    Entonces el sistema ejecuta "POST /api/v1/items/:id/claim"
+    Y el servidor responde 200 OK con "claimApproved: true" y un "deliveryToken" (ej. "TICKET-7841-RET")
+    Y la app muestra la pantalla de confirmación: "Presenta este ticket en la Portería Principal para retirar tu objeto"
+    Y el estado del objeto transiciona automáticamente a "in_process"
+
+  Escenario: Reclamo de objeto bajo custodia Personal
+    Dado que el objeto encontrado es custodiado personalmente por un compañero ("custodyType: PERSONAL")
+    Cuando envío mi comprobación de propiedad (y respondo la pregunta secreta si aplica)
+    Entonces el servidor valida la respuesta, responde 200 OK con "claimApproved: true"
+    Y abre inmediatamente el canal de chat seguro con el custodio ("ChatActivity.kt")
+```
+
+---
+
+### HU-06: Flujo B — Notificación de Hallazgo y Coordinación en Punto Seguro Kime
+
+* **Como** estudiante que encuentra un objeto que alguien reportó como perdido en el feed,  
+* **Quiero** notificar al dueño indicando si lo dejé en la portería (`LEFT_AT_PORTERIA`) o si lo tengo conmigo (`HAVE_IT_WITH_ME`),  
+* **Para** resolver la pérdida de mi compañero y pactar la entrega física en un Punto Seguro del Campus (Cafetería Bloque A / Bienestar).
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Notificación de hallazgo de objeto perdido
+  Como hallador solidario
+  Quiero avisarle al dueño dónde está su objeto
+  Para ayudarlo a recuperarlo sin demoras
+
+  Escenario: Notificación de entrega en Portería
+    Dado que veo una publicación de un cuaderno extraviado ("type: lost")
+    Y decido entregarlo en la portería del Bloque B
+    Cuando pulso "Notificar Hallazgo", elijo la acción "LEFT_AT_PORTERIA" e ingreso una nota
+    Entonces el sistema envía "POST /api/v1/items/:id/notify-found" con action="LEFT_AT_PORTERIA"
+    Y el objeto actualiza su custodia a "PORTERIA", pasando su estado a "in_process"
+    Y el dueño recibe la notificación con la ubicación exacta para recogerlo
+
+  Escenario: Notificación de custodia personal y apertura de chat
+    Dado que elijo la acción "HAVE_IT_WITH_ME"
+    Cuando envío la notificación
+    Entonces el servidor actualiza el objeto a custodia "PERSONAL"
+    Y crea automáticamente la conversación privada ("ChatActivity.kt") con la tarjeta de Punto Seguro Kime
+    Y permite el intercambio de mensajes con actualización atómica de contadores de lectura
+```
+
+---
+
+### HU-07: Cierre de Entrega y Adjudicación de +100 Puntos de Honor
+
+* **Como** estudiante que recuperó satisfactoriamente su objeto,  
+* **Quiero** marcar el caso como devuelto (`returned`), calificar la honestidad de mi compañero con 5 estrellas y seleccionarle reconocimientos cívicos (*Puntual*, *Muy Honesto*),  
+* **Para** cerrar formalmente el reporte en el campus y otorgarle **+100 Puntos de Honor** en su perfil solidario.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Cierre de caso y gamificación de honor
+  Como beneficiario de una devolución
+  Quiero calificar a quien me ayudó
+  Para incentivar la honradez y cultura cívica en la universidad
+
+  Escenario: Cierre formal y adjudicación de puntos
+    Dado que recibí mi objeto en la portería o de manos del custodio
+    Cuando abro el modal "RatingBottomSheetDialog.kt"
+    Y asigno 5 estrellas, selecciono los tags ["Puntual", "Muy Honesto"] y pulso "Finalizar y Cerrar Reporte"
+    Entonces la aplicación invoca "PATCH /api/v1/items/:id/status" marcándolo como "returned"
+    Y seguidamente consume "POST /api/v1/users/:id/rate" enviando la calificación
+    Y el servidor acredita +100 Puntos de Honor al custodio, recalcula su promedio y suma sus badges
+    Y la app despliega una confirmación visual de agradecimiento institucional
+```
+
+---
+
+## 3. Justificación Pedagógica y de Diseño
+
+1. **¿Por qué bifurcar en Flujo A (Exprés Portería) y Flujo B (Detallado Dueño)?**
+   * En el entorno universitario real, quien **encuentra** algo necesita salir rápido del apuro (tomar una foto y dejarlo en portería en 30 segundos). Quien **pierde** algo necesita dar detalles minuciosos (marcas, calcomanías, contenido) para que no se lo entreguen a otra persona. Adaptar la API a esta realidad elimina la fricción del usuario.
+2. **Rol Central de la Portería Institucional:**
+   * La portería es el punto neurálgico de custodia física en la Uniautónoma. La generación automática de `deliveryToken` digitaliza el protocolo de retiro físico, permitiendo a los vigilantes cotejar el ticket antes de entregar el artículo.
+3. **Mantenimiento del Modo "Sin Auth" y Auto-Login:**
+   * El endpoint `POST /api/v1/auth/login` valida la pertenencia institucional pero permite el auto-registro transparente sin contraseñas, permitiendo calificar de forma ágil todas las vistas en el emulador de Android Studio.
