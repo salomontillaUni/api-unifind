@@ -23,10 +23,10 @@ const itemSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['active', 'in_process', 'returned', 'archived'],
+        values: ['pending_review', 'active', 'in_process', 'returned', 'archived', 'rejected'],
         message: 'Estado no válido'
       },
-      default: 'active'
+      default: 'pending_review'
     },
     category: {
       type: String,
@@ -155,6 +155,20 @@ const itemSchema = new mongoose.Schema(
     returnedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      default: null
+    },
+    moderatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    moderationNotes: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    moderatedAt: {
+      type: Date,
       default: null
     }
   },

@@ -288,7 +288,9 @@ const createItem = async (req, res, next) => {
         claimQuestion: finalClaimQuestion,
         claimAnswer: finalClaimAnswer
       },
-      status: 'active'
+      status: (req.body.status && ['active', 'pending_review'].includes(req.body.status))
+        ? req.body.status
+        : 'pending_review'
     });
 
     const populatedItem = await Item.findById(newItem._id).populate(
@@ -299,7 +301,9 @@ const createItem = async (req, res, next) => {
     return res.status(201).json({
       success: true,
       statusCode: 201,
-      message: `Reporte de objeto (${resolvedType.toUpperCase()}) registrado exitosamente`,
+      message: newItem.status === 'pending_review'
+        ? `Reporte de objeto (${resolvedType.toUpperCase()}) enviado a moderación previa exitosamente`
+        : `Reporte de objeto (${resolvedType.toUpperCase()}) registrado exitosamente`,
       data: sanitizeItem(populatedItem)
     });
   } catch (error) {
@@ -811,7 +815,7 @@ const updateItemStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status, returnedTo } = req.body;
 
-    const allowedStatuses = ['active', 'in_process', 'returned', 'archived'];
+    const allowedStatuses = ['pending_review', 'active', 'in_process', 'returned', 'archived', 'rejected'];
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -1080,7 +1084,7 @@ const updateItem = async (req, res, next) => {
     if (type !== undefined) item.type = type;
 
     if (status !== undefined) {
-      const allowedStatus = ['active', 'in_process', 'returned', 'archived'];
+      const allowedStatus = ['pending_review', 'active', 'in_process', 'returned', 'archived', 'rejected'];
       if (!allowedStatus.includes(status)) {
         return res.status(400).json({
           success: false,
@@ -1291,6 +1295,76 @@ const getAllTickets = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Moderación de reportes de objetos (Barrera 3: Filtro previo a publicación)
+ * @route   PATCH /api/v1/items/:id/moderate
+ * @access  Admin / Vigilancia / Bienestar
+ */
+const moderateItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action, status, moderationNotes, notes, moderatorId } = req.body;
+
+    let targetStatus = null;
+    if (action === 'approve' || status === 'active') {
+      targetStatus = 'active';
+    } else if (action === 'reject' || status === 'rejected') {
+      targetStatus = 'rejected';
+    } else {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'Acción de moderación inválida. Envíe action: "approve" | "reject" o status: "active" | "rejected"'
+      });
+    }
+
+    let item = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      item = await Item.findById(id);
+    }
+    if (!item) {
+      const cleanCode = id.replace(/^#/, '').toUpperCase();
+      item = await Item.findOne({
+        $or: [{ code: cleanCode }, { code: `#${cleanCode}` }, { code: id }]
+      });
+    }
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún reporte de objeto con el identificador o código: ${id}`
+      });
+    }
+
+    item.status = targetStatus;
+    item.moderationNotes = (moderationNotes || notes || '').trim();
+    item.moderatedAt = new Date();
+
+    if (moderatorId && mongoose.Types.ObjectId.isValid(moderatorId)) {
+      item.moderatedBy = moderatorId;
+    }
+
+    await item.save();
+
+    const populated = await Item.findById(item._id)
+      .populate('privacy.postedBy', 'fullName institutionalEmail phone reputation studentCode role')
+      .populate('moderatedBy', 'fullName institutionalEmail role')
+      .populate('returnedTo', 'fullName studentCode institutionalEmail');
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: targetStatus === 'active'
+        ? `Reporte #${item.code || item._id} aprobado exitosamente. Ya es público en el Feed.`
+        : `Reporte #${item.code || item._id} rechazado por moderación.`,
+      data: sanitizeItem(populated)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createItem,
   getItems,
@@ -1299,6 +1373,7 @@ module.exports = {
   claimItem,
   notifyFoundItem,
   updateItemStatus,
+  moderateItem,
   getTicketDetails,
   confirmTicketDelivery,
   updateItem,

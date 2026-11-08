@@ -8,6 +8,7 @@ const {
   claimItem,
   notifyFoundItem,
   updateItemStatus,
+  moderateItem,
   getTicketDetails,
   confirmTicketDelivery,
   updateItem,
@@ -48,5 +49,8 @@ router.post('/:id/notify-found', notifyFoundItem);
 
 // Endpoint 8: Actualización de estado del objeto y vinculación de receptor
 router.patch('/:id/status', updateItemStatus);
+
+// Barrera 3: Moderación previa de reportes (Aprobar / Rechazar antes de Feed)
+router.patch('/:id/moderate', moderateItem);
 
 module.exports = router;
