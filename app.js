@@ -28,6 +28,26 @@ app.get('/', (req, res) => {
   });
 });
 
+// HU-10: Health Check para Render / Railway / Cloud monitoring
+const healthCheckHandler = (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  res.status(200).json({
+    success: true,
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    environment: process.env.NODE_ENV || 'development',
+    database: {
+      status: dbStatus,
+      name: mongoose.connection.name || 'unifind'
+    }
+  });
+};
+
+app.get('/health', healthCheckHandler);
+app.get('/api/v1/health', healthCheckHandler);
+
 app.get('/api/v1', (req, res) => {
   res.status(200).json({
     success: true,

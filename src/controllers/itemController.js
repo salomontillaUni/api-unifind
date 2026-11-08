@@ -877,6 +877,158 @@ const updateItemStatus = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Consultar validez y datos de un Ticket Digital de Retiro en Portería - HU-09
+ * @route   GET /api/v1/items/tickets/:token
+ * @access  Public (Sin Auth)
+ */
+const getTicketDetails = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    if (!token || !token.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El código de ticket de entrega es obligatorio'
+      });
+    }
+
+    const cleanToken = token.trim().toUpperCase();
+
+    const item = await Item.findOne({
+      $or: [
+        { 'claimRecord.deliveryToken': cleanToken },
+        { code: cleanToken },
+        { code: `#${cleanToken}` }
+      ]
+    })
+      .populate('claimRecord.claimantId', 'fullName institutionalEmail studentCode phone')
+      .populate('privacy.postedBy', 'fullName institutionalEmail phone');
+
+    if (!item || !item.claimRecord?.deliveryToken) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún ticket de retiro válido con el código: ${cleanToken}`
+      });
+    }
+
+    const isDelivered = item.status === 'returned';
+    const isApproved = item.claimRecord.status === 'approved' || item.status === 'in_process';
+    const isValid = !isDelivered;
+
+    const claimant = item.claimRecord.claimantId || {
+      fullName: 'Estudiante Reclamante Registrado',
+      studentCode: '2022-2045',
+      institutionalEmail: 'comunidad@uniautonoma.edu.co',
+      phone: '3120000000'
+    };
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      data: {
+        deliveryToken: item.claimRecord.deliveryToken,
+        isValid,
+        isDelivered,
+        status: item.status,
+        pickupLocation: item.location?.building || 'Portería Principal',
+        item: {
+          id: item._id,
+          code: item.code,
+          title: item.title,
+          category: item.category,
+          custodyType: item.custodyType,
+          photoUrl: item.photoUrl || (item.images && item.images[0]) || '',
+          campusLocation: `${item.location?.campus || 'Sede Principal'} · ${item.location?.building || 'Portería'}`,
+          specificArea: item.location?.specificArea || ''
+        },
+        claimant: {
+          id: claimant._id,
+          fullName: claimant.fullName,
+          studentCode: claimant.studentCode,
+          institutionalEmail: claimant.institutionalEmail,
+          phone: claimant.phone || ''
+        },
+        ownershipProofText: item.claimRecord.ownershipProofText,
+        claimedAt: item.claimRecord.claimedAt || item.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Confirmar entrega física de pertenencia en Portería mediante Ticket - HU-09
+ * @route   POST /api/v1/items/tickets/:token/confirm-delivery
+ * @access  Public (Sin Auth)
+ */
+const confirmTicketDelivery = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { guardNotes, guardName = 'Personal de Portería' } = req.body;
+
+    if (!token || !token.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El código de ticket de entrega es obligatorio'
+      });
+    }
+
+    const cleanToken = token.trim().toUpperCase();
+
+    const item = await Item.findOne({
+      $or: [
+        { 'claimRecord.deliveryToken': cleanToken },
+        { code: cleanToken },
+        { code: `#${cleanToken}` }
+      ]
+    });
+
+    if (!item || !item.claimRecord?.deliveryToken) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún ticket de entrega con el código: ${cleanToken}`
+      });
+    }
+
+    if (item.status === 'returned') {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'Este ticket ya fue procesado con anterioridad y el objeto ya fue devuelto a su dueño'
+      });
+    }
+
+    // Actualizar estado a devuelto y confirmar entrega
+    item.status = 'returned';
+    item.claimRecord.status = 'approved';
+    item.returnedTo = item.claimRecord.claimantId || DEFAULT_CLAIMANT_USER_ID;
+
+    await item.save();
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Entrega física confirmada exitosamente en Portería. Reporte cerrado con éxito.',
+      data: {
+        deliveryToken: item.claimRecord.deliveryToken,
+        itemCode: item.code,
+        title: item.title,
+        status: item.status,
+        deliveredAt: new Date(),
+        handledBy: guardName,
+        guardNotes: guardNotes ? guardNotes.trim() : null
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createItem,
   getItems,
@@ -885,6 +1037,8 @@ module.exports = {
   claimItem,
   notifyFoundItem,
   updateItemStatus,
+  getTicketDetails,
+  confirmTicketDelivery,
   sanitizeItem,
   calculateTimeAgo,
   mapCategoryQuery

@@ -176,6 +176,7 @@ itemSchema.index(
 // Índices adicionales para acelerar filtros comunes
 itemSchema.index({ code: 1 });
 itemSchema.index({ custodyType: 1 });
+itemSchema.index({ 'claimRecord.deliveryToken': 1 });
 itemSchema.index({ type: 1, status: 1 });
 itemSchema.index({ 'location.building': 1 });
 itemSchema.index({ category: 1 });

@@ -114,10 +114,20 @@ const loginUser = async (req, res, next) => {
         await user.save();
       }
 
+      // Generar token de sesión institucional para almacenamiento seguro en móvil
+      const sessionPayload = {
+        userId: user._id,
+        institutionalEmail: user.institutionalEmail,
+        studentCode: user.studentCode,
+        createdAt: Date.now()
+      };
+      const token = 'unifind_' + Buffer.from(JSON.stringify(sessionPayload)).toString('base64url');
+
       return res.status(200).json({
         success: true,
         statusCode: 200,
         message: 'Sesión iniciada exitosamente',
+        token,
         data: user
       });
     }
@@ -140,10 +150,19 @@ const loginUser = async (req, res, next) => {
       }
     });
 
+    const sessionPayload = {
+      userId: newUser._id,
+      institutionalEmail: newUser.institutionalEmail,
+      studentCode: newUser.studentCode,
+      createdAt: Date.now()
+    };
+    const token = 'unifind_' + Buffer.from(JSON.stringify(sessionPayload)).toString('base64url');
+
     return res.status(200).json({
       success: true,
       statusCode: 200,
       message: 'Usuario verificado y registrado automáticamente en UniFind',
+      token,
       data: newUser
     });
   } catch (error) {

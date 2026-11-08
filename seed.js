@@ -137,6 +137,13 @@ const seedData = async () => {
           postedBy: carlos._id,
           claimQuestion: '¿Qué sticker tiene pegado en la parte inferior?',
           claimAnswer: 'React Developer'
+        },
+        claimRecord: {
+          claimantId: valentina._id,
+          ownershipProofText: 'Termo azul que olvidé en la mesa de cafetería, tiene sticker de React Developer.',
+          status: 'pending',
+          deliveryToken: 'TICKET-4091-RET',
+          claimedAt: new Date()
         }
       },
       {

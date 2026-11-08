@@ -7,7 +7,9 @@ const {
   verifyClaim,
   claimItem,
   notifyFoundItem,
-  updateItemStatus
+  updateItemStatus,
+  getTicketDetails,
+  confirmTicketDelivery
 } = require('../controllers/itemController');
 
 // Endpoint 2: Crear reporte polimórfico de objeto (Flujo A FOUND vs Flujo B LOST)
@@ -15,6 +17,12 @@ router.post('/', createItem);
 
 // Endpoint 3: Listar objetos con filtros y búsqueda de texto (soporta ?custodyType=PORTERIA)
 router.get('/', getItems);
+
+// HU-09: Consola de Vigilancia - Consultar ticket de retiro en Portería
+router.get('/tickets/:token', getTicketDetails);
+
+// HU-09: Consola de Vigilancia - Confirmar entrega física mediante ticket
+router.post('/tickets/:token/confirm-delivery', confirmTicketDelivery);
 
 // Endpoint 4: Obtener detalle con sanitización de privacidad (por _id o por #UAC-XXXX)
 router.get('/:id', getItemById);

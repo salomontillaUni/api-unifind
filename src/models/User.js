@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    avatarUrl: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     reputation: {
       returnedCount: {
         type: Number,

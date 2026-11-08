@@ -831,6 +831,183 @@
             "description": "### HU-07 Escenario 2: Gamificación y Puntos de Honor\nPermite calificar al compañero con 5 estrellas, comentarios e insignias solidarias (*'Puntual'*, *'Custodio Confiable'*), otorgando **+100 Puntos de Honor** al custodio para elevar su reputación en la comunidad universitaria."
           },
           "response": []
+        },
+        {
+          "name": "14. [HU-08] Consultar Perfil Integral y Rango de Honor del Usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "profile"
+              ]
+            },
+            "description": "HU-08: Obtiene el perfil completo con estadisticas de reportes, rango civico (Guardian Novato / Custodio Solidario / Heroe del Campus), saldo de honor y medallas."
+          }
+        },
+        {
+          "name": "15. [HU-08] Actualizar Datos de Perfil (Teléfono y Avatar)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"3159998877\",\n  \"avatarUrl\": \"https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "profile"
+              ]
+            },
+            "description": "HU-08: Actualiza datos de contacto y avatar del usuario."
+          }
+        },
+        {
+          "name": "16. [HU-08] Listar Mis Pertenencias Reportadas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/items?status=all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "items"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "all"
+                }
+              ]
+            },
+            "description": "HU-08: Lista las publicaciones creadas por el usuario autenticado con filtros de estado."
+          }
+        },
+        {
+          "name": "17. [HU-09] Consultar Ticket de Retiro en Portería (Consola del Vigilante)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/items/tickets/TICKET-4091-RET",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "items",
+                "tickets",
+                "TICKET-4091-RET"
+              ]
+            },
+            "description": "HU-09: El personal de vigilancia consulta la validez del ticket digital de retiro, identificando al reclamante, la foto del objeto y el estado actual."
+          }
+        },
+        {
+          "name": "18. [HU-09] Confirmar Entrega Física de Pertenencia en Portería",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guardName\": \"Vigilante Don Ramiro\",\n  \"guardNotes\": \"Entregado a Valentina Gómez previa verificación de documento de identidad.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/items/tickets/TICKET-4091-RET/confirm-delivery",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "items",
+                "tickets",
+                "TICKET-4091-RET",
+                "confirm-delivery"
+              ]
+            },
+            "description": "HU-09: El vigilante confirma la entrega fisica del objeto, transicionando el estado a returned y cerrando el ticket."
+          }
+        },
+        {
+          "name": "19. [HU-10] Health Check del Servidor (Monitoreo Cloud / DevOps)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ]
+            },
+            "description": "HU-10: Endpoint de salud para Render / Railway / Cloud uptime."
+          }
         }
       ]
     },

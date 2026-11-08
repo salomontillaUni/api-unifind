@@ -23,6 +23,10 @@
 | **HU-05** | Flujo A (Reclamo) | Reclamo de objeto encontrado y generación de token de retiro | **Must Have** | `activity_detail.xml` | `DetailActivity.kt` | `POST /api/v1/items/:id/claim` |
 | **HU-06** | Flujo B (Aviso) | Notificación de hallazgo y coordinación en Punto Seguro | **Should Have** | `activity_detail.xml`<br>`activity_chat.xml` | `DetailActivity.kt`<br>`ChatActivity.kt` | `POST /api/v1/items/:id/notify-found`<br>`POST /api/v1/chats/:id/messages` |
 | **HU-07** | Gamificación | Cierre de entrega y adjudicación de +100 Puntos de Honor | **Should Have** | `bottom_sheet_rating.xml` | `RatingBottomSheetDialog.kt` | `PATCH /api/v1/items/:id/status`<br>`POST /api/v1/users/:id/rate` |
+| **HU-08** | Perfil y Gamificación | Perfil integral, rango cívico, insignias y mis reportes | **Should Have** | `activity_profile.xml` | `ProfileActivity.kt` / `ProfileScreen.kt` | `GET /api/v1/users/:id/profile`<br>`PUT /api/v1/users/:id/profile`<br>`GET /api/v1/users/:id/items` |
+| **HU-09** | Portería / Vigilancia | Validación y confirmación de entrega mediante Ticket Digital | **Should Have** | `activity_porteria.xml` | `PorteriaActivity.kt` / `PorteriaScreen.kt` | `GET /api/v1/items/tickets/:token`<br>`POST /api/v1/items/tickets/:token/confirm-delivery` |
+| **HU-10** | DevOps / Cloud | Health Check y despliegue en la nube (Render / Docker) | **Must Have** | N/A (Backend / Cloud) | N/A (Infraestructura) | `GET /api/v1/health`<br>`Dockerfile` / `render.yaml` |
+| **HU-11** | Sesión y Seguridad | Emisión y almacenamiento de Token de Sesión Institucional | **Could Have** | `activity_login.xml` | `SessionManager.kt` / `DataStore` | `POST /api/v1/auth/login` (`token`) |
 
 ---
 
@@ -257,6 +261,118 @@ Característica: Cierre de caso y gamificación de honor
     Y seguidamente consume "POST /api/v1/users/:id/rate" enviando la calificación
     Y el servidor acredita +100 Puntos de Honor al custodio, recalcula su promedio y suma sus badges
     Y la app despliega una confirmación visual de agradecimiento institucional
+```
+
+---
+
+### HU-08: Perfil Integral, Rango Cívico, Insignias y Mis Reportes
+
+* **Como** miembro activo de la comunidad universitaria,  
+* **Quiero** ingresar a mi pantalla de perfil para visualizar mi saldo de Puntos de Honor, rango cívico (*Guardián Novato*, *Custodio Solidario*, *Héroe del Campus*), medallas acumuladas y gestionar mis objetos reportados,  
+* **Para** conocer mi reputación solidaria y verificar qué pertenencias mías están activas o devueltas.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Gestión de perfil e historial de pertenencias
+  Como usuario autenticado en UniFind
+  Quiero consultar mi reputación y publicaciones
+  Para monitorear el estado de mis objetos
+
+  Escenario: Consulta exitosa de perfil e insignias
+    Dado que me encuentro en la pantalla de perfil ("ProfileActivity.kt")
+    Cuando carga la interfaz consumiendo "GET /api/v1/users/:id/profile"
+    Entonces observo mis datos institucionales, avatar, saldo total de Puntos de Honor
+    Y se visualiza mi rango cívico calculado según mi puntaje
+    Y se despliegan las insignias ganadas (ej. ["Puntual", "Custodio Confiable"])
+    Y observo el conteo total de reportes (Perdidos, Encontrados y Devueltos)
+
+  Escenario: Actualización de datos de contacto
+    Dado que deseo actualizar mi número de teléfono o avatar
+    Cuando envío "PUT /api/v1/users/:id/profile" con los nuevos valores
+    Entonces el backend actualiza los campos y responde 200 OK con los datos modificados
+
+  Escenario: Listado de mis pertenencias reportadas
+    Dado que pulso la pestaña "Mis Reportes"
+    Cuando la vista invoca "GET /api/v1/users/:id/items?status=all"
+    Entonces la lista muestra exclusivamente las tarjetas de objetos publicados por mí
+```
+
+---
+
+### HU-09: Consola de Vigilancia — Validación y Despacho de Tickets en Portería
+
+* **Como** personal de vigilancia o portería del campus,  
+* **Quiero** consultar y validar un código de ticket digital de retiro (`deliveryToken`) presentado por un estudiante,  
+* **Para** verificar físicamente que el objeto resguardado coincide con el reclamo aprobado y registrar la entrega oficial de forma transparente.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Validación y entrega de tickets en portería
+  Como vigilante en la portería institucional
+  Quiero validar el ticket digital presentado por un estudiante
+  Para entregar la pertenencia física a la persona correcta
+
+  Escenario: Validación exitosa de ticket digital en portería
+    Dado que un estudiante presenta su código "TICKET-4091-RET" en la portería
+    Cuando el vigilante consulta "GET /api/v1/items/tickets/TICKET-4091-RET"
+    Entonces el sistema responde 200 OK con "isValid: true"
+    Y muestra la fotografía del objeto, título, ubicación física y datos del reclamante verificado (nombre, código y teléfono)
+
+  Escenario: Confirmación de entrega física por el vigilante
+    Dado que el vigilante coteja el documento de identidad del estudiante
+    Cuando pulso "Confirmar Entrega Física" enviando "POST /api/v1/items/tickets/:token/confirm-delivery"
+    Entonces el backend actualiza el estado del objeto a "returned"
+    Y marca el ticket como procesado ("isDelivered: true")
+    Y registra la hora exacta y el nombre del vigilante que atendió la entrega
+
+  Escenario: Rechazo de ticket ya utilizado
+    Dado que se intenta canjear un ticket que ya fue entregado previamente
+    Cuando se envía la confirmación de entrega
+    Entonces el servidor responde 400 Bad Request indicando que el ticket ya fue procesado
+```
+
+---
+
+### HU-10: Infraestructura y Health Check para Despliegue en la Nube
+
+* **Como** equipo de desarrollo y docentes evaluadores,  
+* **Queremos** contar con un endpoint de salud (`/health`) y contenedores Docker para desplegar la API REST en la nube (Render / Railway / VPS),  
+* **Para** que la app móvil y la sustentación funcionen en vivo desde cualquier dispositivo físico y red WiFi sin depender de servidores locales.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Monitoreo y despliegue en la nube
+  Como evaluador o desarrollador
+  Quiero verificar el estado de salud de la API
+  Para asegurar alta disponibilidad del backend
+
+  Escenario: Verificación de estado de salud del servicio
+    Dado que realizo una solicitud "GET /api/v1/health" o "GET /health"
+    Cuando el servidor responde
+    Entonces el código de respuesta es 200 OK
+    Y el cuerpo JSON indica "status: healthy", tiempo activo ("uptimeSeconds") y estado de conexión a MongoDB ("connected")
+```
+
+---
+
+### HU-11: Autenticación con Token de Sesión Institucional
+
+* **Como** aplicación móvil Android,  
+* **Quiero** recibir un token de sesión seguro (`token`) al iniciar sesión o auto-registrarme,  
+* **Para** almacenar la sesión en `EncryptedSharedPreferences` / `DataStore` y mantener la sesión iniciada sin volver a pedir credenciales.
+
+#### Criterios de Aceptación:
+```gherkin
+Característica: Persistencia de sesión segura en móvil
+  Como cliente Android
+  Quiero recibir y almacenar un token de sesión
+  Para no solicitar credenciales repetidamente
+
+  Escenario: Recepción de token al iniciar sesión
+    Dado que inicio sesión con mi correo institucional en "POST /api/v1/auth/login"
+    Cuando la respuesta es exitosa
+    Entonces el payload incluye el campo "token" con un identificador de sesión seguro
+    Y la aplicación almacena este token para restaurar la sesión automáticamente
 ```
 
 ---

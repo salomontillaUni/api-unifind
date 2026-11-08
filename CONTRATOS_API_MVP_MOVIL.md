@@ -84,6 +84,11 @@ Y vincúlelo en `AndroidManifest.xml`:
 | **HU-06 (Chat)** | `/chats/:id/messages` | `POST` | `activity_chat.xml`<br>`ChatActivity.kt` | Mensajería instantánea coordinando la entrega en Punto Seguro Kime con actualización atómica. |
 | **HU-07 (Cierre)** | `/items/:id/status` | `PATCH` | `activity_chat.xml`<br>`ChatActivity.kt` | Transicionar el estado del reporte a devuelto (`returned`) y asociar al receptor. |
 | **HU-07 (Honor)** | `/users/:id/rate` | `POST` | `bottom_sheet_rating.xml`<br>`RatingBottomSheetDialog.kt` | Calificar con estrellas, añadir reconocimientos y adjudicar **+100 Puntos de Honor**. |
+| **HU-08 (Perfil)** | `/users/:id/profile` | `GET` / `PUT` | `activity_profile.xml`<br>`ProfileScreen.kt` | Consultar perfil, rango cívico, medallas, saldo de honor y actualizar datos de contacto. |
+| **HU-08 (Mis Reportes)** | `/users/:id/items` | `GET` | `activity_profile.xml`<br>`ProfileScreen.kt` | Listar exclusivamente las publicaciones creadas por el usuario autenticado. |
+| **HU-09 (Ticket Portería)** | `/items/tickets/:token` | `GET` | `activity_porteria.xml`<br>`PorteriaScreen.kt` | Consultar validez de ticket digital de retiro, identificando al reclamante y pertenencia física. |
+| **HU-09 (Despacho Portería)** | `/items/tickets/:token/confirm-delivery` | `POST` | `activity_porteria.xml`<br>`PorteriaScreen.kt` | Confirmar entrega física en portería, pasando el ítem a `returned` y cerrando el ticket. |
+| **HU-10 (DevOps / Health)** | `/health` / `/api/v1/health` | `GET` | Cloud Monitoring | Health check de la API y verificación de conexión a MongoDB en producción. |
 
 ---
 
@@ -862,7 +867,142 @@ interface UniFindApiService {
         @Path("id") userId: String,
         @Body request: RateUserRequest
     ): Response<ApiResponse<Any>>
+
+    // HU-08: Perfil integral, rango de honor y estadísticas
+    @GET("users/{id}/profile")
+    suspend fun getUserProfile(
+        @Path("id") userId: String
+    ): Response<ApiResponse<UserProfileData>>
+
+    // HU-08: Actualizar datos de contacto en perfil
+    @PUT("users/{id}/profile")
+    suspend fun updateUserProfile(
+        @Path("id") userId: String,
+        @Body request: UpdateProfileRequest
+    ): Response<ApiResponse<UserDto>>
+
+    // HU-08: Listar publicaciones creadas por el usuario
+    @GET("users/{id}/items")
+    suspend fun getUserItems(
+        @Path("id") userId: String,
+        @Query("status") status: String? = null,
+        @Query("type") type: String? = null
+    ): Response<PaginatedResponse<ItemDto>>
+
+    // HU-09: Consultar validez y datos de Ticket en Portería
+    @GET("items/tickets/{token}")
+    suspend fun getTicketDetails(
+        @Path("token") deliveryToken: String
+    ): Response<ApiResponse<TicketDetailsData>>
+
+    // HU-09: Confirmar entrega física en Portería mediante Ticket
+    @POST("items/tickets/{token}/confirm-delivery")
+    suspend fun confirmTicketDelivery(
+        @Path("token") deliveryToken: String,
+        @Body request: ConfirmDeliveryRequest
+    ): Response<ApiResponse<ConfirmDeliveryResult>>
+
+    // HU-10: Health Check del servidor
+    @GET("health")
+    suspend fun getHealth(): Response<Map<String, Any>>
 }
+
+// -------------------------------------------------------------------------
+// DTOs adicionales para HU-08 y HU-09:
+// -------------------------------------------------------------------------
+
+@Serializable
+data class UserProfileData(
+    val user: UserProfileDetails,
+    val stats: UserStats,
+    val recentItems: List<ItemDto> = emptyList()
+)
+
+@Serializable
+data class UserProfileDetails(
+    val id: String,
+    val fullName: String,
+    val institutionalEmail: String,
+    val studentCode: String,
+    val phone: String = "",
+    val avatarUrl: String = "",
+    val reputation: ReputationDetails
+)
+
+@Serializable
+data class ReputationDetails(
+    val rating: Double,
+    val returnedCount: Int,
+    val honorPoints: Int,
+    val rank: String, // "Guardián Novato", "Custodio Solidario", "Héroe del Campus"
+    val badges: List<String> = emptyList()
+)
+
+@Serializable
+data class UserStats(
+    val totalReported: Int,
+    val reportedLost: Int,
+    val reportedFound: Int,
+    val returnedSuccess: Int
+)
+
+@Serializable
+data class UpdateProfileRequest(
+    val fullName: String? = null,
+    val phone: String? = null,
+    val avatarUrl: String? = null
+)
+
+@Serializable
+data class TicketDetailsData(
+    val deliveryToken: String,
+    val isValid: Boolean,
+    val isDelivered: Boolean,
+    val status: String,
+    val pickupLocation: String,
+    val item: TicketItemInfo,
+    val claimant: TicketClaimantInfo,
+    val ownershipProofText: String? = null,
+    val claimedAt: String? = null
+)
+
+@Serializable
+data class TicketItemInfo(
+    val id: String,
+    val code: String,
+    val title: String,
+    val category: String,
+    val custodyType: String? = null,
+    val photoUrl: String? = null,
+    val campusLocation: String? = null,
+    val specificArea: String? = null
+)
+
+@Serializable
+data class TicketClaimantInfo(
+    val id: String? = null,
+    val fullName: String,
+    val studentCode: String,
+    val institutionalEmail: String,
+    val phone: String = ""
+)
+
+@Serializable
+data class ConfirmDeliveryRequest(
+    val guardName: String = "Personal de Portería",
+    val guardNotes: String? = null
+)
+
+@Serializable
+data class ConfirmDeliveryResult(
+    val deliveryToken: String,
+    val itemCode: String,
+    val title: String,
+    val status: String,
+    val deliveredAt: String,
+    val handledBy: String,
+    val guardNotes: String? = null
+)
 ```
 
 ---
