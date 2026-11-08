@@ -6,13 +6,34 @@ const authRoutes = require('./src/routes/authRoutes');
 const itemRoutes = require('./src/routes/itemRoutes');
 const chatRoutes = require('./src/routes/chatRoutes');
 const userRoutes = require('./src/routes/userRoutes');
+const categoryRoutes = require('./src/routes/categoryRoutes');
 const analyticsRoutes = require('./src/routes/analyticsRoutes');
 const { errorHandler, notFoundHandler } = require('./src/middlewares/errorHandler');
 
 const app = express();
 
-// Middlewares globales
-app.use(cors());
+// Configuración de CORS para permitir Next.js (localhost:3000 y localhost:3001), móvil y herramientas de test
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001'
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Permitir solicitudes sin origin (como apps móviles nativas, Postman, curl) o dentro de la lista
+      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -55,6 +76,7 @@ app.get('/api/v1', (req, res) => {
     modules: [
       { prefix: '/api/v1/auth', description: 'Registro y autenticación' },
       { prefix: '/api/v1/items', description: 'Gestión y búsqueda de reportes de objetos' },
+      { prefix: '/api/v1/categories', description: 'Catálogo y gestión de categorías de objetos' },
       { prefix: '/api/v1/chats', description: 'Canales de comunicación privados' },
       { prefix: '/api/v1/users', description: 'Usuarios y calificaciones de reputación' },
       { prefix: '/api/v1/analytics', description: 'Agregaciones analíticas y hotspots del campus' }
@@ -65,6 +87,7 @@ app.get('/api/v1', (req, res) => {
 // Montaje de rutas con prefijo de versión /api/v1
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/items', itemRoutes);
+app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/chats', chatRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);

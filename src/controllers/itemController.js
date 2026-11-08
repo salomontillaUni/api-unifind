@@ -1029,6 +1029,268 @@ const confirmTicketDelivery = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Actualizar completamente un reporte de objeto - Admin / Panel
+ * @route   PUT /api/v1/items/:id
+ * @access  Public / Admin
+ */
+const updateItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      category,
+      description,
+      location,
+      custodyType,
+      status,
+      brandAndColor,
+      distinguishingMarks,
+      photoUrl,
+      images,
+      tags,
+      type
+    } = req.body;
+
+    let item = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      item = await Item.findById(id);
+    }
+    if (!item) {
+      const cleanCode = id.replace(/^#/, '').toUpperCase();
+      item = await Item.findOne({
+        $or: [{ code: cleanCode }, { code: `#${cleanCode}` }, { code: id }]
+      });
+    }
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún reporte de objeto con el ID o código: ${id}`
+      });
+    }
+
+    if (title !== undefined) item.title = title.trim();
+    if (category !== undefined) item.category = category.trim();
+    if (description !== undefined) item.description = description.trim();
+    if (brandAndColor !== undefined) item.brandAndColor = brandAndColor.trim();
+    if (distinguishingMarks !== undefined) item.distinguishingMarks = distinguishingMarks.trim();
+    if (photoUrl !== undefined) item.photoUrl = photoUrl.trim();
+    if (type !== undefined) item.type = type;
+
+    if (status !== undefined) {
+      const allowedStatus = ['active', 'in_process', 'returned', 'archived'];
+      if (!allowedStatus.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: `Estado inválido: '${status}'. Estados permitidos: ${allowedStatus.join(', ')}`
+        });
+      }
+      item.status = status;
+    }
+
+    if (custodyType !== undefined) {
+      const allowedCustody = ['PORTERIA', 'PERSONAL', null, ''];
+      if (!allowedCustody.includes(custodyType)) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: `custodyType inválido: '${custodyType}'. Debe ser PORTERIA o PERSONAL`
+        });
+      }
+      item.custodyType = custodyType || null;
+    }
+
+    if (location !== undefined) {
+      if (typeof location === 'object' && location !== null) {
+        if (location.campus !== undefined) item.location.campus = location.campus.trim();
+        if (location.building !== undefined) item.location.building = location.building.trim();
+        if (location.specificArea !== undefined) item.location.specificArea = location.specificArea.trim();
+      } else if (typeof location === 'string') {
+        item.location.building = location.trim();
+      }
+    }
+
+    if (Array.isArray(images)) item.images = images;
+    if (Array.isArray(tags)) item.tags = tags;
+
+    await item.save();
+
+    await item.populate('privacy.postedBy', 'fullName institutionalEmail phone reputation studentCode');
+    await item.populate('returnedTo', 'fullName studentCode');
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Reporte de objeto actualizado exitosamente',
+      data: sanitizeItem(item)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Eliminar o archivar reporte de objeto
+ * @route   DELETE /api/v1/items/:id
+ * @access  Public / Admin
+ */
+const deleteItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { permanent } = req.query;
+
+    let item = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      item = await Item.findById(id);
+    }
+    if (!item) {
+      const cleanCode = id.replace(/^#/, '').toUpperCase();
+      item = await Item.findOne({
+        $or: [{ code: cleanCode }, { code: `#${cleanCode}` }, { code: id }]
+      });
+    }
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún reporte con el ID o código: ${id}`
+      });
+    }
+
+    if (permanent === 'true' || permanent === true) {
+      await Item.findByIdAndDelete(item._id);
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Reporte de objeto eliminado permanentemente de la base de datos',
+        data: { id: item._id, code: item.code, title: item.title }
+      });
+    }
+
+    // Por defecto, eliminación segura / archivado
+    item.status = 'archived';
+    await item.save();
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Reporte de objeto archivado exitosamente',
+      data: { id: item._id, code: item.code, status: item.status }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Listar todos los tickets generados para auditoría de portería
+ * @route   GET /api/v1/items/tickets
+ * @access  Public / Admin / Portería
+ */
+const getAllTickets = async (req, res, next) => {
+  try {
+    const { status, search, page = 1, limit = 50 } = req.query;
+
+    const query = {
+      $or: [
+        { 'claimRecord.deliveryToken': { $exists: true, $ne: '' } },
+        { custodyType: 'PORTERIA' }
+      ]
+    };
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      const regex = new RegExp(term, 'i');
+      query.$and = [
+        {
+          $or: [
+            { 'claimRecord.deliveryToken': regex },
+            { code: regex },
+            { title: regex },
+            { 'location.building': regex }
+          ]
+        }
+      ];
+    }
+
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.max(1, parseInt(limit, 10) || 50);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const total = await Item.countDocuments(query);
+    const items = await Item.find(query)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .populate('claimRecord.claimantId', 'fullName institutionalEmail studentCode phone')
+      .populate('privacy.postedBy', 'fullName institutionalEmail phone studentCode');
+
+    const tickets = items.map((item) => {
+      const claimant = item.claimRecord?.claimantId || null;
+      const postedBy = item.privacy?.postedBy || null;
+      const token = item.claimRecord?.deliveryToken || `TICKET-${item.code ? item.code.replace('#', '') : item._id.toString().slice(-4).toUpperCase()}`;
+
+      return {
+        _id: item._id,
+        ticketToken: token,
+        deliveryToken: token,
+        item: {
+          id: item._id,
+          code: item.code,
+          title: item.title,
+          category: item.category,
+          custodyType: item.custodyType,
+          status: item.status,
+          location: item.location,
+          photoUrl: item.photoUrl || (item.images && item.images[0]) || ''
+        },
+        claimant: claimant
+          ? {
+              id: claimant._id,
+              fullName: claimant.fullName,
+              studentCode: claimant.studentCode,
+              institutionalEmail: claimant.institutionalEmail,
+              phone: claimant.phone || ''
+            }
+          : null,
+        reportedBy: postedBy
+          ? {
+              id: postedBy._id,
+              fullName: postedBy.fullName,
+              studentCode: postedBy.studentCode,
+              institutionalEmail: postedBy.institutionalEmail
+            }
+          : null,
+        status: item.status,
+        isDelivered: item.status === 'returned',
+        ownershipProofText: item.claimRecord?.ownershipProofText || '',
+        createdAt: item.claimRecord?.claimedAt || item.createdAt,
+        updatedAt: item.updatedAt
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      total,
+      count: tickets.length,
+      page: pageNumber,
+      totalPages: Math.ceil(total / limitNumber),
+      data: tickets
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createItem,
   getItems,
@@ -1039,6 +1301,9 @@ module.exports = {
   updateItemStatus,
   getTicketDetails,
   confirmTicketDelivery,
+  updateItem,
+  deleteItem,
+  getAllTickets,
   sanitizeItem,
   calculateTimeAgo,
   mapCategoryQuery

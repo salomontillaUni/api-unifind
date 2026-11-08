@@ -2,6 +2,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('./src/models/User');
 const Item = require('./src/models/Item');
+const Category = require('./src/models/Category');
 const Chat = require('./src/models/Chat');
 const Message = require('./src/models/Message');
 
@@ -15,14 +16,55 @@ const seedData = async () => {
     await Promise.all([
       User.deleteMany({}),
       Item.deleteMany({}),
+      Category.deleteMany({}),
       Chat.deleteMany({}),
       Message.deleteMany({})
     ]);
 
-    console.log('[Seed] Insertando usuarios universitarios con sistema de Puntos de Honor...');
+    console.log('[Seed] Insertando categorías oficiales del campus...');
+    const categories = await Category.insertMany([
+      {
+        name: 'Tecnología',
+        slug: 'tecnologia',
+        icon: 'Laptop',
+        description: 'Dispositivos electrónicos, calculadoras, cargadores y periféricos',
+        isActive: true
+      },
+      {
+        name: 'Documentos',
+        slug: 'documentos',
+        icon: 'FileText',
+        description: 'Carnés institucionales, cédulas, tarjetas bancarias y documentos oficiales',
+        isActive: true
+      },
+      {
+        name: 'Ropa',
+        slug: 'ropa',
+        icon: 'Shirt',
+        description: 'Prendas de vestir, chaquetas, suéteres, gorras y bufandas',
+        isActive: true
+      },
+      {
+        name: 'Llaves',
+        slug: 'llaves',
+        icon: 'Key',
+        description: 'Llaveros, llaves de casillero, candados y residencias',
+        isActive: true
+      },
+      {
+        name: 'Académico',
+        slug: 'academico',
+        icon: 'BookOpen',
+        description: 'Cuadernos, libros, carpetas, estuches y materiales de estudio',
+        isActive: true
+      }
+    ]);
+
+    console.log('[Seed] Insertando usuarios universitarios con roles y sistema de Puntos de Honor...');
     const USER_CARLOS_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10001');
     const USER_VALENTINA_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10002');
     const USER_ANDRES_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10003');
+    const USER_ADMIN_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000a10004');
 
     const ITEM_CASIO_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000b10001');
     const ITEM_CARNET_ID = new mongoose.Types.ObjectId('670c1f1e1c9d440000b10002');
@@ -40,6 +82,7 @@ const seedData = async () => {
         fullName: 'Carlos Andrés Muñoz',
         institutionalEmail: 'carlos.munoz@uniautonoma.edu.co',
         studentCode: '2023-1001',
+        role: 'student',
         phone: '3104567890',
         reputation: {
           returnedCount: 2,
@@ -53,6 +96,7 @@ const seedData = async () => {
         fullName: 'Valentina Gómez Restrepo',
         institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
         studentCode: '2022-2045',
+        role: 'student',
         phone: '3157891234',
         reputation: {
           returnedCount: 0,
@@ -63,15 +107,30 @@ const seedData = async () => {
       },
       {
         _id: USER_ANDRES_ID,
-        fullName: 'Andrés Felipe Salazar',
+        fullName: 'Andrés Felipe Salazar (Vigilancia)',
         institutionalEmail: 'andres.salazar@uniautonoma.edu.co',
-        studentCode: '2021-3088',
+        studentCode: 'GUARD-001',
+        role: 'guard',
         phone: '3189012345',
         reputation: {
           returnedCount: 1,
           rating: 5.0,
           honorPoints: 150,
-          badges: ['Honestidad UAC']
+          badges: ['Honestidad UAC', 'Vigilante Oficial']
+        }
+      },
+      {
+        _id: USER_ADMIN_ID,
+        fullName: 'Administrador del Sistema UniFind',
+        institutionalEmail: 'admin.unifind@uniautonoma.edu.co',
+        studentCode: 'ADMIN-001',
+        role: 'admin',
+        phone: '3001234567',
+        reputation: {
+          returnedCount: 10,
+          rating: 5.0,
+          honorPoints: 500,
+          badges: ['Supervisión Campus', 'Administrador']
         }
       }
     ]);
@@ -288,15 +347,17 @@ const seedData = async () => {
     });
 
     console.log('====================================================');
-    console.log('✅ Base de datos poblada exitosamente para MVP Móvil y Portería:');
-    console.log(`- Usuarios creados: ${users.length}`);
+    console.log('✅ Base de datos poblada exitosamente para MVP Móvil y Panel Admin:');
+    console.log(`- Categorías registradas: ${categories.length}`);
+    console.log(`- Usuarios creados: ${users.length} (Estudiantes, Vigilante, Administrador)`);
     console.log(`- Reportes de objetos: ${items.length}`);
     console.log(`- Chats inicializados: 1`);
     console.log('----------------------------------------------------');
     console.log('IDs y Códigos de referencia:');
-    console.log(`- Carlos Muñoz (Custodio Personal): ${carlos._id}`);
-    console.log(`- Valentina Gómez (Reclamante):     ${valentina._id}`);
-    console.log(`- Andrés Salazar:                  ${andres._id}`);
+    console.log(`- Carlos Muñoz (Estudiante):        ${carlos._id}`);
+    console.log(`- Valentina Gómez (Estudiante):     ${valentina._id}`);
+    console.log(`- Andrés Salazar (Vigilancia):      ${andres._id}`);
+    console.log(`- Admin Uniautónoma (Admin):        ${USER_ADMIN_ID}`);
     console.log(`- Calculadora Casio (PERSONAL):     ${calculadoraItem._id} (Código: UAC-8841)`);
     console.log(`- Termo Stanley (PORTERIA):         ${ITEM_TERMO_ID} (Código: UAC-4091)`);
     console.log(`- Audífonos Sony (PORTERIA):        ${ITEM_AUDIFONOS_ID} (Código: UAC-9933)`);

@@ -106,17 +106,46 @@ const rateUser = async (req, res, next) => {
 };
 
 /**
- * @desc    Listar todos los usuarios
+ * @desc    Listar todos los usuarios con paginación, búsqueda y filtro por rol
  * @route   GET /api/v1/users
- * @access  Public
+ * @access  Public / Admin
  */
 const getUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select('-__v').sort({ createdAt: -1 });
+    const { page, limit, search, role } = req.query;
+    const query = {};
+
+    if (role && role.trim()) {
+      query.role = role.trim();
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      const searchRegex = new RegExp(term, 'i');
+      query.$or = [
+        { fullName: searchRegex },
+        { institutionalEmail: searchRegex },
+        { studentCode: searchRegex }
+      ];
+    }
+
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.max(1, parseInt(limit, 10) || 50);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const total = await User.countDocuments(query);
+    const users = await User.find(query)
+      .select('-__v')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
 
     return res.status(200).json({
       success: true,
       statusCode: 200,
+      total,
+      page: pageNumber,
+      totalPages: Math.ceil(total / limitNumber),
       count: users.length,
       data: users
     });
@@ -338,11 +367,135 @@ const getUserItems = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Actualización administrativa de usuario (role, phone, honorPoints, fullName, avatarUrl)
+ * @route   PUT /api/v1/users/:id
+ * @access  Public / Admin
+ */
+const updateUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { role, phone, honorPoints, fullName, avatarUrl } = req.body;
+
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      user = await User.findById(id);
+    }
+    if (!user) {
+      user = await User.findOne({
+        $or: [{ studentCode: id }, { institutionalEmail: id.toLowerCase().trim() }]
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún usuario con el ID o código: ${id}`
+      });
+    }
+
+    if (role !== undefined) {
+      const allowedRoles = ['student', 'guard', 'admin', 'superadmin'];
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: `Rol inválido: '${role}'. Roles permitidos: ${allowedRoles.join(', ')}`
+        });
+      }
+      user.role = role;
+    }
+
+    if (phone !== undefined) user.phone = phone.trim();
+    if (fullName !== undefined) user.fullName = fullName.trim();
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl.trim();
+
+    if (honorPoints !== undefined) {
+      const numPoints = Number(honorPoints);
+      if (isNaN(numPoints)) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: 'honorPoints debe ser un valor numérico'
+        });
+      }
+      if (!user.reputation) {
+        user.reputation = {
+          returnedCount: 0,
+          rating: 5.0,
+          honorPoints: 100,
+          badges: []
+        };
+      }
+      user.reputation.honorPoints = numPoints;
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Usuario actualizado exitosamente',
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Eliminar usuario de la plataforma
+ * @route   DELETE /api/v1/users/:id
+ * @access  Public / Admin
+ */
+const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      user = await User.findById(id);
+    }
+    if (!user) {
+      user = await User.findOne({
+        $or: [{ studentCode: id }, { institutionalEmail: id.toLowerCase().trim() }]
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        error: `No se encontró ningún usuario con el ID o código: ${id}`
+      });
+    }
+
+    await User.findByIdAndDelete(user._id);
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Usuario eliminado exitosamente',
+      data: {
+        id: user._id,
+        fullName: user.fullName,
+        studentCode: user.studentCode,
+        institutionalEmail: user.institutionalEmail
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   rateUser,
   getUsers,
   getUserById,
   getUserProfile,
   updateUserProfile,
-  getUserItems
+  getUserItems,
+  updateUser,
+  deleteUser
 };

@@ -24,6 +24,11 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true
     },
+    role: {
+      type: String,
+      enum: ['student', 'guard', 'admin', 'superadmin'],
+      default: 'student'
+    },
     phone: {
       type: String,
       trim: true,
