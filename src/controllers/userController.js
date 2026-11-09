@@ -238,6 +238,7 @@ const getUserProfile = async (req, res, next) => {
           fullName: user.fullName,
           institutionalEmail: user.institutionalEmail,
           studentCode: user.studentCode,
+          role: user.role || 'student',
           phone: user.phone || '',
           avatarUrl: user.avatarUrl || '',
           reputation: {
