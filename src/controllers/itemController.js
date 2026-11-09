@@ -205,20 +205,21 @@ const createItem = async (req, res, next) => {
     const resolvedPhoto = photoUrl || (Array.isArray(images) && images[0]) || '';
     const resolvedImages = Array.isArray(images) && images.length > 0 ? images : (resolvedPhoto ? [resolvedPhoto] : []);
 
-    // Soporte 'Sin Auth': Auto-asignar usuario comunitario si no se especifica
-    const resolvedPostedBy = privacy?.postedBy || postedBy || DEFAULT_COMMUNITY_USER_ID;
+    // Soporte 'Sin Auth': Auto-asignar usuario comunitario si no se especifica o si no es ObjectId válido
+    let resolvedPostedBy = privacy?.postedBy || postedBy || DEFAULT_COMMUNITY_USER_ID;
+    if (!mongoose.Types.ObjectId.isValid(resolvedPostedBy)) {
+      resolvedPostedBy = DEFAULT_COMMUNITY_USER_ID;
+    }
 
-    if (mongoose.Types.ObjectId.isValid(resolvedPostedBy)) {
-      const userExists = await User.findById(resolvedPostedBy);
-      if (!userExists) {
-        await User.create({
-          _id: resolvedPostedBy,
-          fullName: 'Carlos Andrés Muñoz',
-          institutionalEmail: 'carlos.munoz@uniautonoma.edu.co',
-          studentCode: '2023-1001',
-          phone: '3104567890'
-        }).catch(() => {});
-      }
+    const userExists = await User.findById(resolvedPostedBy);
+    if (!userExists) {
+      await User.create({
+        _id: resolvedPostedBy,
+        fullName: 'Carlos Andrés Muñoz',
+        institutionalEmail: 'carlos.munoz@uniautonoma.edu.co',
+        studentCode: '2023-1001',
+        phone: '3104567890'
+      }).catch(() => {});
     }
 
     // Generar automáticamente código único si no se envía
@@ -592,19 +593,20 @@ const claimItem = async (req, res, next) => {
       }
     }
 
-    const resolvedClaimant = claimantId || DEFAULT_CLAIMANT_USER_ID;
+    let resolvedClaimant = claimantId || DEFAULT_CLAIMANT_USER_ID;
+    if (!mongoose.Types.ObjectId.isValid(resolvedClaimant)) {
+      resolvedClaimant = DEFAULT_CLAIMANT_USER_ID;
+    }
 
     // Asegurar existencia del reclamante
-    if (mongoose.Types.ObjectId.isValid(resolvedClaimant)) {
-      const userExists = await User.findById(resolvedClaimant);
-      if (!userExists) {
-        await User.create({
-          _id: resolvedClaimant,
-          fullName: 'Valentina Gómez Restrepo',
-          institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
-          studentCode: '2022-2045'
-        }).catch(() => {});
-      }
+    const userExists = await User.findById(resolvedClaimant);
+    if (!userExists) {
+      await User.create({
+        _id: resolvedClaimant,
+        fullName: 'Valentina Gómez Restrepo',
+        institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
+        studentCode: '2022-2045'
+      }).catch(() => {});
     }
 
     item.status = 'in_process';
@@ -730,19 +732,20 @@ const notifyFoundItem = async (req, res, next) => {
       });
     }
 
-    const resolvedFinder = finderId || DEFAULT_COMMUNITY_USER_ID;
+    let resolvedFinder = finderId || DEFAULT_COMMUNITY_USER_ID;
+    if (!mongoose.Types.ObjectId.isValid(resolvedFinder)) {
+      resolvedFinder = DEFAULT_COMMUNITY_USER_ID;
+    }
 
     // Asegurar existencia del hallador
-    if (mongoose.Types.ObjectId.isValid(resolvedFinder)) {
-      const finderExists = await User.findById(resolvedFinder);
-      if (!finderExists) {
-        await User.create({
-          _id: resolvedFinder,
-          fullName: 'Carlos Andrés Muñoz',
-          institutionalEmail: 'carlos.munoz@uniautonoma.edu.co',
-          studentCode: '2023-1001'
-        }).catch(() => {});
-      }
+    const finderExists = await User.findById(resolvedFinder);
+    if (!finderExists) {
+      await User.create({
+        _id: resolvedFinder,
+        fullName: 'Carlos Andrés Muñoz',
+        institutionalEmail: 'carlos.munoz@uniautonoma.edu.co',
+        studentCode: '2023-1001'
+      }).catch(() => {});
     }
 
     item.status = 'in_process';
@@ -846,18 +849,19 @@ const updateItemStatus = async (req, res, next) => {
     }
 
     if (status === 'returned') {
-      const resolvedReceiver = returnedTo || DEFAULT_CLAIMANT_USER_ID;
+      let resolvedReceiver = returnedTo || DEFAULT_CLAIMANT_USER_ID;
+      if (!mongoose.Types.ObjectId.isValid(resolvedReceiver)) {
+        resolvedReceiver = DEFAULT_CLAIMANT_USER_ID;
+      }
 
-      if (mongoose.Types.ObjectId.isValid(resolvedReceiver)) {
-        const receiverExists = await User.findById(resolvedReceiver);
-        if (!receiverExists) {
-          await User.create({
-            _id: resolvedReceiver,
-            fullName: 'Valentina Gómez Restrepo',
-            institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
-            studentCode: '2022-2045'
-          }).catch(() => {});
-        }
+      const receiverExists = await User.findById(resolvedReceiver);
+      if (!receiverExists) {
+        await User.create({
+          _id: resolvedReceiver,
+          fullName: 'Valentina Gómez Restrepo',
+          institutionalEmail: 'valentina.gomez@uniautonoma.edu.co',
+          studentCode: '2022-2045'
+        }).catch(() => {});
       }
 
       item.returnedTo = resolvedReceiver;
