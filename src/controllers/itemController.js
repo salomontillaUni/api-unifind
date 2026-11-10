@@ -1141,14 +1141,13 @@ const updateItem = async (req, res, next) => {
 };
 
 /**
- * @desc    Eliminar o archivar reporte de objeto
+ * @desc    Eliminar permanentemente (100%) un reporte de objeto de la base de datos
  * @route   DELETE /api/v1/items/:id
  * @access  Public / Admin
  */
 const deleteItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { permanent } = req.query;
 
     let item = null;
     if (mongoose.Types.ObjectId.isValid(id)) {
@@ -1169,25 +1168,14 @@ const deleteItem = async (req, res, next) => {
       });
     }
 
-    if (permanent === 'true' || permanent === true) {
-      await Item.findByIdAndDelete(item._id);
-      return res.status(200).json({
-        success: true,
-        statusCode: 200,
-        message: 'Reporte de objeto eliminado permanentemente de la base de datos',
-        data: { id: item._id, code: item.code, title: item.title }
-      });
-    }
-
-    // Por defecto, eliminación segura / archivado
-    item.status = 'archived';
-    await item.save();
+    // Eliminación física 100% permanente de la base de datos (MongoDB)
+    await Item.findByIdAndDelete(item._id);
 
     return res.status(200).json({
       success: true,
       statusCode: 200,
-      message: 'Reporte de objeto archivado exitosamente',
-      data: { id: item._id, code: item.code, status: item.status }
+      message: 'Reporte de objeto eliminado permanentemente (100%) de la base de datos',
+      data: { id: item._id, code: item.code, title: item.title }
     });
   } catch (error) {
     next(error);

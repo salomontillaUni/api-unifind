@@ -106,6 +106,112 @@ const rateUser = async (req, res, next) => {
 };
 
 /**
+ * @desc    Crear un nuevo usuario institucional (Estudiante, Vigilante o Admin)
+ * @route   POST /api/v1/users
+ * @access  Public / Admin
+ */
+const createUser = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      institutionalEmail,
+      studentCode,
+      role = 'student',
+      phone = '',
+      avatarUrl = '',
+      honorPoints = 100
+    } = req.body;
+
+    if (!fullName || !fullName.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El nombre completo es obligatorio'
+      });
+    }
+
+    if (!institutionalEmail || !institutionalEmail.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El correo institucional es obligatorio'
+      });
+    }
+
+    const emailTrimmed = institutionalEmail.trim().toLowerCase();
+    if (!emailTrimmed.endsWith('@uniautonoma.edu.co')) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El correo debe ser institucional con dominio @uniautonoma.edu.co'
+      });
+    }
+
+    if (!studentCode || !studentCode.trim()) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: 'El código estudiantil o de identificación es obligatorio'
+      });
+    }
+
+    const codeTrimmed = studentCode.trim().toUpperCase();
+
+    const allowedRoles = ['student', 'guard', 'admin', 'superadmin'];
+    if (role && !allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: `Rol inválido: '${role}'. Roles permitidos: ${allowedRoles.join(', ')}`
+      });
+    }
+
+    // Verificar unicidad de correo o código
+    const existing = await User.findOne({
+      $or: [
+        { institutionalEmail: emailTrimmed },
+        { studentCode: codeTrimmed }
+      ]
+    });
+
+    if (existing) {
+      const matchEmail = existing.institutionalEmail === emailTrimmed;
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        error: matchEmail
+          ? `Ya existe un usuario registrado con el correo ${emailTrimmed}`
+          : `Ya existe un usuario registrado con el código ${codeTrimmed}`
+      });
+    }
+
+    const newUser = await User.create({
+      fullName: fullName.trim(),
+      institutionalEmail: emailTrimmed,
+      studentCode: codeTrimmed,
+      role: role || 'student',
+      phone: phone ? phone.trim() : '',
+      avatarUrl: avatarUrl ? avatarUrl.trim() : '',
+      reputation: {
+        returnedCount: 0,
+        rating: 5.0,
+        honorPoints: Number(honorPoints) || 100,
+        badges: role === 'guard' ? ['Vigilancia'] : ['Miembro UAC']
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      statusCode: 201,
+      message: 'Usuario institucional creado exitosamente',
+      data: newUser
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @desc    Listar todos los usuarios con paginación, búsqueda y filtro por rol
  * @route   GET /api/v1/users
  * @access  Public / Admin
@@ -491,6 +597,7 @@ const deleteUser = async (req, res, next) => {
 };
 
 module.exports = {
+  createUser,
   rateUser,
   getUsers,
   getUserById,

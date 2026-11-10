@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
+  createUser,
   rateUser,
   getUsers,
   getUserById,
@@ -13,6 +14,9 @@ const {
 
 // Listar usuarios con paginación, búsqueda y filtros
 router.get('/', getUsers);
+
+// Crear nuevo usuario institucional (Panel Admin)
+router.post('/', createUser);
 
 // HU-08: Perfil integral de usuario con estadísticas y reputación
 router.get('/:id/profile', getUserProfile);
